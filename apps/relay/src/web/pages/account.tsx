@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import type { AccountPage as AccountPageData, AccountView, PermissionView } from "../../shared/account-web.js";
 import { CodeBlock } from "../components/code-block.js";
 import { MukaeMark } from "../components/mukae-mark.js";
+import { PaperPage } from "../components/paper-page.js";
 import { PendingForm, PendingScope, SubmitButton } from "../components/pending-form.js";
 import { Avatar } from "../ui/avatar.js";
 import { Badge } from "../ui/badge.js";
@@ -39,9 +40,11 @@ export function accountPageTitle(page: AccountPageData): string {
 
 export function AccountPage({ page }: { page: AccountPageData }) {
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center px-4 pt-14 pb-20 sm:pt-20">
-      <AccountContent page={page} />
-    </main>
+    <PaperPage frame="account">
+      <main className="flex w-full flex-col items-center">
+        <AccountContent page={page} />
+      </main>
+    </PaperPage>
   );
 }
 
@@ -58,10 +61,13 @@ function AccountContent({ page }: { page: AccountPageData }) {
 
 function Shell({ header, children, footer, wide }: { header: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("flex w-full flex-col items-center gap-8", wide ? "max-w-2xl" : "max-w-md")}>
-      <div className="flex flex-col items-center gap-5 text-center">{header}</div>
-      <div className="flex w-full flex-col gap-6 sm:rounded-2xl sm:bg-card sm:p-8 sm:shadow-[0_1px_2px_oklch(0_0_0/0.04),0_12px_32px_-8px_oklch(0_0_0/0.08)]">{children}</div>
-      {footer ? <div className="text-center text-sm text-muted-foreground">{footer}</div> : null}
+    <div className={cn("flex w-full flex-col items-center sm:gap-s4", wide ? "sm:max-w-2xl" : "sm:max-w-md")}>
+      <div className="flex w-full flex-col gap-s3 sm:bg-card sm:p-s4 sm:shadow-sheet">
+        <div className="flex flex-col items-center gap-s3 text-center [&_h1]:font-label [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight">{header}</div>
+        <span className="tile-rule-brand block w-full" aria-hidden />
+        <div className="flex w-full flex-col gap-s3">{children}</div>
+      </div>
+      {footer ? <div className="w-full pt-s4 text-center text-sm text-muted-foreground sm:pt-0">{footer}</div> : null}
     </div>
   );
 }
@@ -82,7 +88,7 @@ function SignIn({ page }: { page: Extract<AccountPageData, { kind: "sign-in" }> 
       header={(
         <>
           <MukaeMark className="size-14" />
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to Mukae</h1>
+          <h1>Sign in to Mukae</h1>
           <p className="max-w-sm text-muted-foreground">
             Mukae lets web apps you approve reach agents on devices you own. Sign in to approve an app or a device.
           </p>
@@ -112,14 +118,13 @@ function DeviceCode({ page }: { page: Extract<AccountPageData, { kind: "device-c
       header={(
         <>
           <IconBadge><TerminalIcon /></IconBadge>
-          <h1 className="text-2xl font-semibold tracking-tight">Connect a device</h1>
+          <h1>Connect a device</h1>
           <SignedInAs account={page.account} />
         </>
       )}
-      footer="Only enter a code your own device printed. Mukae never sends you a code."
     >
       <p className="text-center text-sm text-muted-foreground">
-        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">mukae login</code>.
+        Enter the code your device printed after <code className="rounded bg-muted px-1.5 py-0.5 font-mono whitespace-nowrap text-foreground">mukae login</code>.
       </p>
       <PendingForm method="get" action="/device" className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -158,7 +163,7 @@ function DeviceApproval({ page }: { page: Extract<AccountPageData, { kind: "devi
       header={(
         <>
           <IconBadge><LaptopIcon /></IconBadge>
-          <h1 className="text-2xl font-semibold tracking-tight">Connect this device?</h1>
+          <h1>Connect this device?</h1>
           <SignedInAs account={page.account} />
         </>
       )}
@@ -200,7 +205,7 @@ function DeviceApproved({ page }: { page: Extract<AccountPageData, { kind: "devi
       header={(
         <>
           <StatusMark tone="success" />
-          <h1 className="text-2xl font-semibold tracking-tight">Device connected</h1>
+          <h1>Device connected</h1>
           <p className="max-w-md text-muted-foreground">
             The device is signed in to your account. <code className="font-mono text-sm">mukae login</code> on it finishes on its own.
           </p>
@@ -257,7 +262,7 @@ function Consent({ page }: { page: Extract<AccountPageData, { kind: "consent" }>
             <span className="flex gap-1" aria-hidden>{[0, 1, 2].map((dot) => <span key={dot} className="size-1 rounded-full bg-muted-foreground/40" />)}</span>
             <MukaeMark className="size-14" />
           </div>
-          <h1 className="max-w-lg text-2xl font-semibold tracking-tight text-balance">
+          <h1 className="max-w-lg text-balance">
             {name ? <>{name} wants to use agents on your devices</> : <>{site} wants to use agents on your devices</>}
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -320,7 +325,7 @@ function Message({ page }: { page: Extract<AccountPageData, { kind: "message" }>
       header={(
         <>
           <StatusMark tone={page.tone} />
-          <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
+          <h1>{page.title}</h1>
         </>
       )}
     >
@@ -404,13 +409,11 @@ function CodeDisplay({ code }: { code: string }) {
   );
 }
 
-/** A solid round mark for an outcome: a check for success, an exclamation for an error. */
+/** A square mark for an outcome: a check for success, an exclamation for an error. */
 function StatusMark({ tone }: { tone: "success" | "neutral" | "error" }) {
-  const style = tone === "success"
-    ? "bg-success-500 text-white shadow-lg shadow-success-500/30"
-    : tone === "error" ? "bg-danger-500 text-white shadow-lg shadow-danger-500/30" : "bg-muted text-muted-foreground";
+  const style = tone === "success" ? "bg-success-500 text-white" : tone === "error" ? "bg-danger-500 text-white" : "bg-muted text-muted-foreground";
   const icon = tone === "success" ? <CheckIcon strokeWidth={3} /> : tone === "error" ? <CircleAlertIcon /> : <InfoIcon />;
-  return <span className={cn("flex size-14 items-center justify-center rounded-full [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
+  return <span className={cn("flex size-14 items-center justify-center [&_svg]:size-7", style)} aria-hidden>{icon}</span>;
 }
 
 function IconBadge({ children }: { children: ReactNode }) {
