@@ -52,6 +52,22 @@ _Avoid_: `/` as "no directory", workspace (Example's word for a directory the pe
 An MCP server a web app serves from its page through the relay, for tools that run in the page. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
 _Avoid_: MCP gateway, bridge, tunnel, tool server
 
+**App SDK**:
+Exterior's optional library for apps that expose discoverable capabilities and script execution to agents.
+_Avoid_: protocol SDK, daemon SDK
+
+**Code Mode**:
+A way for an agent to compose an app's capabilities in a script and use its result in a conversation.
+_Avoid_: remote shell, daemon execution
+
+**Capability catalog**:
+An app's description of the methods and values it exposes to Code Mode, including their types and how to use them.
+_Avoid_: full SDK, MCP tool list
+
+**Code Mode REPL**:
+An app-owned script environment whose variables belong to a conversation and its selected application context.
+_Avoid_: ACP session, MCP session
+
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.
 _Avoid_: token, code, reusable URL

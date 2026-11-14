@@ -45,7 +45,7 @@ Save that public configuration where the app keeps its settings.
 
 Install the SDK using its documented package address and pass the configuration to `useAccount(config)`. After the callback is handled, the SDK opens the page where the person started sign-in. Use `session.listDevices()` and `session.openConnection(...)` to list devices and open an agent. Follow the SDK's [connection and resume guidance](../packages/sdk/README.md#devices-and-connections).
 
-Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent. App-specific dependencies such as a codemode proxy remain the app's responsibility.
+Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent.
 
 When using a metadata document, check from outside the deployment that its HTTPS address returns JSON and that both `client_id` and `redirect_uris` match the SDK configuration:
 
@@ -55,3 +55,9 @@ curl -fsS "$client_id" | jq -e --arg id "$client_id" --arg uri "$redirect_uri" \
 ```
 
 Setup is complete when the app signs in and initializes a real agent. Report the configuration and the checks you ran, including any live steps still pending. Publish or commit only when requested.
+
+## Expose app tools
+
+Use the protocol SDK's [`serveMcp`](../packages/sdk/README.md#serving-tools-to-an-agent) to serve tools through the relay. To offer Code Mode, add the optional [App SDK](../packages/app-sdk/README.md) and declare which app methods and values scripts can access. Give the agent the MCP endpoint during ACP session setup after checking its HTTP MCP capability.
+
+Bind the script environment to the selected conversation and app context, such as a report or the current AUV device. With a real agent, verify discovery, a two-cell script that reuses a variable, and cancellation. Verify that switching the context creates a clean environment. The app determines the capabilities and any permissions required for an operation.

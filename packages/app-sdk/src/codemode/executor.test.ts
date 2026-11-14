@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { executeJavaScript } from "./executor.js";
+import { createRepl, executeJavaScript } from "./executor.js";
 
 describe("executeJavaScript", () => {
   it("uses synchronous handles and asynchronous host calls inside an isolated guest", async () => {
@@ -145,7 +145,7 @@ describe("executeJavaScript", () => {
   it("summarizes instrumentation values inside the guest", async () => {
     const report = vi.fn();
     const outcome = await executeJavaScript({
-      code: '__report(2, { select() {}, id: 7 })',
+      code: '__report(2, { select() {}, id: 7 }, 42)',
       bindings: { __report: report },
       inspect: {
         binding: "__report",
@@ -153,7 +153,7 @@ describe("executeJavaScript", () => {
       },
     });
     expect(outcome.status).toBe("ok");
-    expect(report).toHaveBeenCalledExactlyOnceWith(2, { id: 7 });
+    expect(report).toHaveBeenCalledExactlyOnceWith(2, { id: 7 }, 42);
   });
 
   it("preserves data property names and rejects functions and accessors", async () => {
@@ -185,5 +185,116 @@ describe("executeJavaScript", () => {
     });
     expect(mirror).toHaveBeenCalledExactlyOnceWith(value);
     expect(outcome).toEqual({ status: "ok", content: [{ type: "text", text: JSON.stringify(value) }], store: {} });
+  });
+});
+
+describe("createRepl", () => {
+  it("retains guest declarations, object identity, and mutations before ordinary errors", async () => {
+    const repl = createRepl();
+    try {
+      const first = await repl.execute({
+        prelude: "var state, increment, alias;",
+        code: "(async () => { state = { count: 1 }; alias = state; increment = () => ++state.count; })()",
+      });
+      expect(first.status).toBe("ok");
+
+      const error = await repl.execute({ code: 'increment(); throw new Error("expected");' });
+      expect(error).toMatchObject({ status: "error", message: "expected" });
+      const later = await repl.execute({ code: "[state.count, alias === state, increment()]" });
+      expect(later).toMatchObject({ status: "ok", content: [{ type: "text", text: "[2,true,3]" }] });
+      expect(await executeJavaScript({ code: "typeof state" })).toMatchObject({
+        status: "ok", content: [{ type: "text", text: "undefined" }],
+      });
+    } finally {
+      repl.close();
+    }
+  });
+
+  it("retains an app handle while resolving its effects and output in the current cell", async () => {
+    let route = "first";
+    const read = vi.fn(async (id: string) => ({ id, route }));
+    const open = (id: string) => ({ read: () => read(id) });
+    const repl = createRepl({ bindings: { app: { open } }, deferredBindings: ["app"], syncBindings: [open] });
+    try {
+      const firstOutput = vi.fn();
+      await repl.execute({ code: 'var handle = app.open("window"); text("opened");', onOutput: firstOutput });
+      route = "second";
+      const second = await repl.execute({ code: '(async () => await handle.read())()' });
+      expect(read).toHaveBeenCalledExactlyOnceWith("window");
+      expect(firstOutput).toHaveBeenCalledExactlyOnceWith({ type: "text", text: "opened" });
+      expect(second).toMatchObject({ status: "ok", content: [{ type: "text", text: '{"id":"window","route":"second"}' }] });
+    } finally {
+      repl.close();
+    }
+  });
+
+  it("rejects simultaneous cells and drops late host responses from an earlier cell", async () => {
+    let resolveSlow!: (value: string) => void;
+    let signalReady!: () => void;
+    const ready = new Promise<void>(resolve => { signalReady = resolve; });
+    const slow = () => new Promise<string>(resolve => { resolveSlow = resolve; });
+    const oldEffect = vi.fn();
+    let releaseSecond!: () => void;
+    const repl = createRepl({
+      bindings: { slow, oldEffect, pause: () => new Promise<void>(resolve => { releaseSecond = resolve; signalReady(); }) },
+    });
+    try {
+      expect((await repl.execute({ code: 'var old = slow().then(oldEffect); "first done";' })).status).toBe("ok");
+      const second = repl.execute({ code: '(async () => { await pause(); return "second done"; })()' });
+      await ready;
+      expect(await repl.execute({ code: "1" })).toMatchObject({ status: "error", message: "Another code cell is running." });
+      resolveSlow("late");
+      releaseSecond();
+      expect(await second).toMatchObject({ status: "ok", content: [{ type: "text", text: "second done" }] });
+      expect(oldEffect).not.toHaveBeenCalled();
+    } finally {
+      repl.close();
+    }
+  });
+
+  it("revokes queued host work once the cell settles, while pure promises can be resolved in a later cell", async () => {
+    const effect = vi.fn();
+    const repl = createRepl({ bindings: { effect }, deferredBindings: ["effect"] });
+    try {
+      expect((await repl.execute({ code: `
+        var release, awaiting;
+        awaiting = new Promise(resolve => { release = resolve; }).then(effect);
+        Promise.resolve("detached").then(effect);
+        "first done";
+      ` })).status).toBe("ok");
+      expect(effect).not.toHaveBeenCalled();
+      expect((await repl.execute({ code: '(async () => { release("current"); await awaiting; })()' })).status).toBe("ok");
+      expect(effect).toHaveBeenCalledExactlyOnceWith("current");
+    } finally {
+      repl.close();
+    }
+  });
+
+  it("clears the heap on reset, timeout, or cancellation and closes permanently", async () => {
+    const controller = new AbortController();
+    const repl = createRepl();
+    try {
+      await repl.execute({ code: "var saved = 42" });
+      repl.reset();
+      expect(await repl.execute({ code: "typeof saved" })).toMatchObject({ content: [{ type: "text", text: "undefined" }] });
+
+      const pending = repl.execute({
+        code: '(async () => { var first = 1; globalThis.canceledCell = first; text("started"); await new Promise(() => {}); })()',
+        signal: controller.signal,
+        onOutput: () => controller.abort(),
+      });
+      expect(await pending).toMatchObject({ status: "stopped", reason: "canceled" });
+      expect(await repl.execute({ code: "typeof canceledCell" })).toMatchObject({ content: [{ type: "text", text: "undefined" }] });
+
+      const timedOut = await repl.execute({ code: "var timedOutCell = 2; while (true) {}", timeoutMs: 50 });
+      expect(timedOut).toMatchObject({ status: "stopped", reason: "timeout" });
+      expect(await repl.execute({ code: "typeof timedOutCell" })).toMatchObject({ content: [{ type: "text", text: "undefined" }] });
+
+      const active = repl.execute({ code: 'text("started"); new Promise(() => {});', onOutput: () => repl.close() });
+      expect(await active).toMatchObject({ status: "stopped", reason: "canceled" });
+      expect(await repl.execute({ code: "1" })).toMatchObject({ status: "error", message: "Code REPL is closed." });
+    } finally {
+      repl.close();
+    }
   });
 });

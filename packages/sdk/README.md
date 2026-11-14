@@ -84,7 +84,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const tools = await serveMcp(relayUrl, await session.accessToken(), (transport) => {
   const server = new McpServer({ name: "playground", version: "1.0.0" });
-  server.registerTool("codemode", { inputSchema: { code: z.string() } }, async ({ code }, { signal }) => run(code, signal));
+  server.registerTool("report_title", {}, async () => ({
+    content: [{ type: "text", text: reportTitle() }],
+  }));
   void server.connect(transport);
 });
 // In ACP session/new, session/load and session/resume:
@@ -95,42 +97,7 @@ Check that the agent's `initialize` response has `agentCapabilities.mcpCapabilit
 
 The endpoint lasts as long as its socket. Closing the page or calling `close()` ends it: calls still running fail, and the address answers 404. `closed` resolves with `revoked` when the person revokes the app, and otherwise with undefined. Open one endpoint per connection, and pass it again under the same `name` when that connection resumes a session. An agent may share the servers it is given between its sessions (OpenCode does, per working directory), so do not rely on an endpoint being one ACP session's alone.
 
-### App Code Mode
-
-`@exterioragentprotocol/sdk/codemode` shares a capability catalog between discovery and the app objects exposed to scripts. Supply an `ApiCatalog` directly or generate one at build time with `buildTypeScriptCatalog` from `/codemode/typescript-catalog` and your app's TypeScript dependency. A namespace can select SDK members and project a returned handle to another declared namespace. Add examples and restrictions specific to your app.
-
-`connectCodeMode` from `/codemode/mcp` uses your MCP SDK dependency and serves `help`, `search`, `describe`, and `execute` on a transport from `serveMcp`. The discovery tools read the catalog without running code. Supply the same `api` from `createApiHelp` to scripts for discovery inside a run.
-
-```ts
-import { catalogBindings, createApiHelp } from "@exterioragentprotocol/sdk/codemode";
-import { executeJavaScript } from "@exterioragentprotocol/sdk/codemode/executor";
-import { connectCodeMode } from "@exterioragentprotocol/sdk/codemode/mcp";
-import { compileTypeScript } from "@exterioragentprotocol/sdk/codemode/typescript";
-
-const api = createApiHelp(reportCatalog, { starter: ["report.scores"] });
-const tools = await serveMcp(relayUrl, accessToken, (transport) => {
-  void connectCodeMode(transport, {
-    name: "reports",
-    version: "1.0.0",
-    description: "Run TypeScript against the selected benchmark report. Use help, search, and describe to discover report methods.",
-    api,
-    async run({ code, signal, timeoutMs }) {
-      const report = catalogBindings(reportCatalog, "report", selectedReport());
-      const result = await executeJavaScript({
-        code: compileTypeScript(code),
-        bindings: { api, report },
-        signal,
-        timeoutMs,
-      });
-      const detail = result.status === "error" ? result.message : result.status === "stopped" ? result.reason : undefined;
-      const content = detail ? [...result.content, { type: "text" as const, text: detail }] : result.content;
-      return { content, isError: result.status !== "ok" };
-    },
-  });
-});
-```
-
-The executor runs compiled JavaScript in a fresh QuickJS context. The TypeScript helper erases types and wraps a script body with top-level `await` and `return`. Apps with their own compiler can pass its emitted JavaScript directly. Bind trusted app objects selectively. An admitted data member exposes its complete plain value, so keep credentials in the host. The app selects the active object, controls access to effects, and can pass a committed `store` to each run. Commit the returned store after a successful run. Cancellation interrupts scripts and prevents pending bindings from being dispatched, while effects already started follow the app's own cancellation rules.
+For code execution and discovery tools, use the [Exterior App SDK](../app-sdk/README.md) with this transport.
 
 ## Tokens
 
