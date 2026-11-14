@@ -1,7 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, type CallToolResult, type Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { McpTransport } from "../client/mcp.js";
 import type { ApiHelp } from "./catalog.js";
 import { codeExecutionLimits as limits } from "./limits.js";
 
@@ -54,7 +53,7 @@ function output(value: Record<string, unknown>): CallToolResult {
 }
 
 /** Connect one MCP session. Discovery reads the catalog directly and never invokes the application runner. */
-export async function connectCodeMode(transport: McpTransport | Transport, options: CodeModeMcpOptions): Promise<void> {
+export async function connectCodeMode(transport: Transport, options: CodeModeMcpOptions): Promise<void> {
   const execute: Tool = {
     name: "execute",
     description: options.description,

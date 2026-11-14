@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { expect, it, vi } from "vitest";
 import { catalogBindings, createApiHelp } from "./catalog.js";
-import { executeJavaScript } from "./executor.js";
+import { createRepl } from "./executor.js";
 import { connectCodeMode } from "./mcp.js";
 import { buildTypeScriptCatalog } from "./typescript-catalog.js";
 import { compileTypeScript } from "./typescript.js";
@@ -33,10 +33,10 @@ it("serves a report's discovery directly over MCP and exposes the same catalog a
   });
   const api = createApiHelp(catalog, { starter: ["report.scores"] });
   const report = catalogBindings(catalog, "report", new BenchmarkReport());
+  const repl = createRepl({ bindings: { api, report } });
   const run = vi.fn(async ({ code, timeoutMs, signal }: { code: string; timeoutMs: number; signal: AbortSignal }) => {
-    const outcome = await executeJavaScript({
-      code: compileTypeScript(code),
-      bindings: { api, report },
+    const outcome = await repl.execute({
+      ...compileTypeScript(code),
       timeoutMs,
       signal,
     });
@@ -76,12 +76,13 @@ it("serves a report's discovery directly over MCP and exposes the same catalog a
           const { items } = api.search({ query: "benchmark" });
           const [entry] = items;
           const minimum: number = 0.5;
-          return {
+          function filteredScores() { return report.scores().filter((score) => score >= minimum) }
+          ({
             path: entry.path,
             help: api.describe({ path: entry.path }).signature,
-            scores: report.scores().filter((score) => score >= minimum),
+            scores: filteredScores(),
             privateBinding: typeof report.credentials,
-          };
+          });
         `,
       },
     });
@@ -96,7 +97,11 @@ it("serves a report's discovery directly over MCP and exposes the same catalog a
         privateBinding: "undefined",
       }),
     }]);
+    const next = await client.callTool({ name: "execute", arguments: { code: "[entry.path, minimum, filteredScores()]" } });
+    expect(next.isError).toBe(false);
+    expect(next.content).toEqual([{ type: "text", text: '["report.scores",0.5,[0.9]]' }]);
   } finally {
+    repl.close();
     await client.close();
     await serverTransport.close();
   }
