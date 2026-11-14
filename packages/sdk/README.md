@@ -97,7 +97,7 @@ Check that the agent's `initialize` response has `agentCapabilities.mcpCapabilit
 
 The endpoint lasts as long as its socket. Closing the page or calling `close()` ends it: calls still running fail, and the address answers 404. `closed` resolves with `revoked` when the person revokes the app, and otherwise with undefined. Open one endpoint per connection, and pass it again under the same `name` when that connection resumes a session. An agent may share the servers it is given between its sessions (OpenCode does, per working directory), so do not rely on an endpoint being one ACP session's alone.
 
-For code execution and discovery tools, use the [Exterior App SDK](../app-sdk/README.md) with this transport.
+For code execution and discovery tools, use the [Exterior Client SDK](../client-sdk/README.md) with this transport.
 
 ## Tokens
 

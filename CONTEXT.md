@@ -52,7 +52,7 @@ _Avoid_: `/` as "no directory", workspace (Example's word for a directory the pe
 An MCP server a web app serves from its page through the relay, for tools that run in the page. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
 _Avoid_: MCP gateway, bridge, tunnel, tool server
 
-**App SDK**:
+**Client SDK**:
 Exterior's optional library for apps that expose discoverable capabilities and script execution to agents.
 _Avoid_: protocol SDK, daemon SDK
 
