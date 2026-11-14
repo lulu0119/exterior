@@ -2,7 +2,7 @@
 
 Status: accepted.
 
-Apps such as AUV Playground need to expose their own SDK operations and keep the values an agent discovers across tool calls. The optional App SDK, `@exterioragentprotocol/app-sdk`, provides the capability catalog, script execution and MCP tools. The protocol SDK retains the EAP roles described in [ADR 0024](0024-the-protocol-ships-as-one-sdk.md). Separating the packages gives apps a reusable execution layer and keeps the JavaScript engine and TypeScript tooling out of protocol-only installs.
+Apps such as AUV Playground need to expose their own SDK operations and keep the values an agent discovers across tool calls. The optional Client SDK, `@exterioragentprotocol/client-sdk`, provides the capability catalog, script execution and MCP tools. The protocol SDK retains the EAP roles described in [ADR 0024](0024-the-protocol-ships-as-one-sdk.md). Separating the packages gives apps a reusable execution layer and keeps the JavaScript engine and TypeScript tooling out of protocol-only installs.
 
 The app serves the tools on an existing [MCP endpoint](0030-a-web-app-serves-mcp-through-the-relay.md). The same capability catalog describes script bindings and determines which operations are exposed, including those on returned objects. Discovery reads the catalog without executing a cell. The app selects the active conversation and the device or other application context, binds its capabilities to that context, and keeps policy, credentials, domain operations and their results in its own integration. The relay and daemon keep their existing EAP behavior.
 

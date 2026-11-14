@@ -266,7 +266,7 @@ importers:
         specifier: ^8.18.3
         version: 8.22.0
 
-  packages/app-sdk:
+  packages/client-sdk:
     dependencies:
       '@jitl/quickjs-singlefile-browser-release-sync':
         specifier: 0.32.0

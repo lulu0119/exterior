@@ -1,16 +1,16 @@
-# Exterior App SDK
+# Exterior Client SDK
 
-Install the [App SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/app-sdk@main) alongside your app's MCP SDK and TypeScript. For an Exterior agent connection, use the [protocol SDK](../sdk/README.md) for sign-in and `serveMcp`.
+Install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main) alongside your app's MCP SDK and TypeScript. For an Exterior agent connection, use the [protocol SDK](../sdk/README.md) for sign-in and `serveMcp`.
 
-`@exterioragentprotocol/app-sdk/codemode` shares a capability catalog between discovery and the app objects exposed to scripts. Supply an `ApiCatalog` directly or generate one at build time with `buildTypeScriptCatalog` from `/codemode/typescript-catalog` and your app's TypeScript dependency. A namespace can select SDK members and project a returned handle to another declared namespace. Add examples and restrictions specific to your app.
+`@exterioragentprotocol/client-sdk/codemode` shares a capability catalog between discovery and the app objects exposed to scripts. Supply an `ApiCatalog` directly or generate one at build time with `buildTypeScriptCatalog` from `/codemode/typescript-catalog` and your app's TypeScript dependency. A namespace can select SDK members and project a returned handle to another declared namespace. Add examples and restrictions specific to your app.
 
 `connectCodeMode` from `/codemode/mcp` uses your MCP SDK dependency and serves `help`, `search`, `describe`, and `execute` on a transport from `serveMcp`. The discovery tools read the catalog without running code. Supply the same `api` from `createApiHelp` to scripts for discovery inside a run.
 
 ```ts
-import { catalogBindings, createApiHelp } from "@exterioragentprotocol/app-sdk/codemode";
-import { createRepl } from "@exterioragentprotocol/app-sdk/codemode/executor";
-import { connectCodeMode } from "@exterioragentprotocol/app-sdk/codemode/mcp";
-import { compileTypeScript } from "@exterioragentprotocol/app-sdk/codemode/typescript";
+import { catalogBindings, createApiHelp } from "@exterioragentprotocol/client-sdk/codemode";
+import { createRepl } from "@exterioragentprotocol/client-sdk/codemode/executor";
+import { connectCodeMode } from "@exterioragentprotocol/client-sdk/codemode/mcp";
+import { compileTypeScript } from "@exterioragentprotocol/client-sdk/codemode/typescript";
 import { serveMcp } from "@exterioragentprotocol/sdk/client";
 
 const api = createApiHelp(reportCatalog, { starter: ["report.scores"] });

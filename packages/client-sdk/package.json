@@ -1,5 +1,5 @@
 {
-  "name": "@exterioragentprotocol/app-sdk",
+  "name": "@exterioragentprotocol/client-sdk",
   "version": "0.1.0-beta.1",
   "description": "App-owned Code Mode catalogs and REPLs for applications that serve tools over MCP.",
   "type": "module",
@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lulu0119/exterior.git",
-    "directory": "packages/app-sdk"
+    "directory": "packages/client-sdk"
   },
   "publishConfig": {
     "access": "public"

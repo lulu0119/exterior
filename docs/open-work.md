@@ -14,7 +14,7 @@ Code still missing.
 - Grants per device: the consent page grants every device of the account. Let the person choose devices, and close the attach sockets a narrowed grant no longer covers ([spec §4.4](protocol/exterior-agent-protocol.md#44-grants)).
 - The device approval page shows the code and the account. Show the requesting device's name and address too, so a forwarded code is easier to spot.
 - A machine-readable EAP schema and a conformance suite a third-party relay or device can run.
-- npm release of `exterior-project`, `@exterioragentprotocol/sdk`, and `@exterioragentprotocol/app-sdk`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
+- npm release of `exterior-project`, `@exterioragentprotocol/sdk`, and `@exterioragentprotocol/client-sdk`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: update the Coolify application name and the GitHub OAuth app name. The GitHub repo is already [lulu0119/exterior](https://github.com/lulu0119/exterior).
 
 ## Awaiting verification
