@@ -60,13 +60,9 @@ _Avoid_: protocol SDK, daemon SDK
 A way for an agent to compose an app's capabilities in a script and use its result in a conversation.
 _Avoid_: remote shell, daemon execution
 
-**Capability catalog**:
-An app's description of the methods and values it exposes to Code Mode, including their types and how to use them.
-_Avoid_: full SDK, MCP tool list
-
-**Code Mode REPL**:
-An app-owned script environment whose variables belong to a conversation and its selected application context.
-_Avoid_: ACP session, MCP session
+**Code Mode tool**:
+An operation an app makes callable from a script, with a description and data shapes the agent can discover.
+_Avoid_: full SDK, MCP endpoint
 
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.

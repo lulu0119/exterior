@@ -1,7 +1,7 @@
 {
   "name": "@exterioragentprotocol/client-sdk",
   "version": "0.1.0-beta.1",
-  "description": "App-owned Code Mode catalogs and REPLs for applications that serve tools over MCP.",
+  "description": "App-owned JavaScript Code Mode for applications that serve tools over MCP.",
   "type": "module",
   "files": [
     "dist"
@@ -19,44 +19,24 @@
       "types": "./dist/codemode/index.d.ts",
       "import": "./dist/codemode/index.js"
     },
-    "./codemode/executor": {
-      "types": "./dist/codemode/executor.d.ts",
-      "import": "./dist/codemode/executor.js"
-    },
-    "./codemode/mcp": {
-      "types": "./dist/codemode/mcp.d.ts",
-      "import": "./dist/codemode/mcp.js"
-    },
-    "./codemode/typescript": {
-      "types": "./dist/codemode/typescript.d.ts",
-      "import": "./dist/codemode/typescript.js"
-    },
-    "./codemode/typescript-catalog": {
-      "types": "./dist/codemode/typescript-catalog.d.ts",
-      "import": "./dist/codemode/typescript-catalog.js"
+    "./codemode/worker": {
+      "types": "./dist/codemode/browser.worker.d.ts",
+      "import": "./dist/codemode/browser.worker.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json && node scripts/copy-wasm.mjs && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
     "prepublishOnly": "pnpm run build",
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
-    "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
-    "quickjs-emscripten-core": "0.32.0",
-    "ts-blank-space": "^0.9.0"
+    "@earendil-works/pi-codemode": "1.5.2",
+    "birpc": "^4.2.0",
+    "quickjs-wasi": "3.6.2",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
-    "typescript": "^5.9.2 || ^6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@modelcontextprotocol/sdk": {
-      "optional": true
-    },
-    "typescript": {
-      "optional": true
-    }
+    "@modelcontextprotocol/sdk": "^1.32.1"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

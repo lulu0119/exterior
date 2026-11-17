@@ -1,41 +1,45 @@
 # Exterior Client SDK
 
-Install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main) alongside your app's MCP SDK and TypeScript. For an Exterior agent connection, use the [protocol SDK](../sdk/README.md) for sign-in and `serveMcp`.
+Install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main), the [protocol SDK](../sdk/README.md), and `@modelcontextprotocol/sdk` v1. The protocol SDK provides sign-in and `serveMcp`. The Client SDK serves a single MCP `execute` tool backed by [Pi Code Mode](https://github.com/earendil-works/pi/tree/main/packages/codemode).
 
-`@exterioragentprotocol/client-sdk/codemode` shares a capability catalog between discovery and the app objects exposed to scripts. Supply an `ApiCatalog` directly or generate one at build time with `buildTypeScriptCatalog` from `/codemode/typescript-catalog` and your app's TypeScript dependency. A namespace can select SDK members and project a returned handle to another declared namespace. Add examples and restrictions specific to your app.
-
-`connectCodeMode` from `/codemode/mcp` uses your MCP SDK dependency and serves `help`, `search`, `describe`, and `execute` on a transport from `serveMcp`. The discovery tools read the catalog without running code. Supply the same `api` from `createApiHelp` to scripts for discovery inside a run.
+An app supplies the Pi tools it wants scripts to call. Each tool includes a name, a description, optional JSON schemas for the generated declarations, and an `execute` callback. Validate arguments and enforce permissions in the callback. SDK objects and credentials stay in the app. Use plain JSON or resource references for results.
 
 ```ts
-import { catalogBindings, createApiHelp } from "@exterioragentprotocol/client-sdk/codemode";
-import { createRepl } from "@exterioragentprotocol/client-sdk/codemode/executor";
-import { connectCodeMode } from "@exterioragentprotocol/client-sdk/codemode/mcp";
-import { compileTypeScript } from "@exterioragentprotocol/client-sdk/codemode/typescript";
+import {
+  connectCodeMode,
+  createBrowserCodeModeSandbox,
+  type CodemodeTool,
+} from "@exterioragentprotocol/client-sdk/codemode";
+import CodeModeWorker from "@exterioragentprotocol/client-sdk/codemode/worker?worker";
 import { serveMcp } from "@exterioragentprotocol/sdk/client";
 
-const api = createApiHelp(reportCatalog, { starter: ["report.scores"] });
-const report = catalogBindings(reportCatalog, "report", selectedReport());
-const repl = createRepl({ bindings: { api, report } });
-const tools = await serveMcp(relayUrl, accessToken, (transport) => {
+const reportTools: CodemodeTool[] = [
+  {
+    name: "report_scores",
+    description: "Read the selected report's scores.",
+    inputSchema: { type: "object", additionalProperties: false },
+    outputSchema: { type: "array", items: { type: "number" } },
+    execute(_args, { signal }) {
+      signal.throwIfAborted();
+      return selectedReport().scores();
+    },
+  },
+];
+const sandbox = createBrowserCodeModeSandbox({
+  createWorker: () => new CodeModeWorker(),
+  tools: reportTools,
+});
+const endpoint = await serveMcp(relayUrl, accessToken, (transport) => {
   void connectCodeMode(transport, {
     name: "reports",
     version: "1.0.0",
-    description: "Run TypeScript against the selected benchmark report. Use help, search, and describe to discover report methods.",
-    api,
-    async run({ code, signal, timeoutMs }) {
-      const result = await repl.execute({ ...compileTypeScript(code), signal, timeoutMs });
-      const content = [...result.content];
-      if (result.status === "error") content.push({ type: "text", text: result.message });
-      if (result.status === "stopped") content.push({ type: "text", text: `Execution ${result.reason}. The REPL was reset.` });
-      return { content, isError: result.status !== "ok" };
-    },
+    tools: reportTools,
+    run: ({ code, signal, timeoutMs }) => sandbox.execute(code, { signal, timeoutMs }),
   });
 });
-void tools.closed.then(() => repl.close());
+void endpoint.closed.then(() => sandbox.close());
 ```
 
-The example serves one REPL for a selected report and conversation. Close its tools and REPL when that conversation or report changes. `compileTypeScript` erases type syntax and prepares a cell with top-level `await` and `return`. Top-level variables, functions, and classes can be used by later cells. Apps with their own compiler can pass the emitted JavaScript and optional prelude directly. `executeJavaScript` provides the same executor for a one-shot run.
+The example uses Vite's `?worker` import. The browser SDK keeps app tools in the page and gives each execution a fresh Pi VM in a module worker. The published worker includes a reference to the packaged WASM asset. A different browser bundler needs to emit that worker and asset. A Node app can instead pass Pi's `CodemodeSandbox.execute` through the same `run` callback.
 
-Run one cell at a time. Ordinary runtime errors may leave earlier assignments in place. A canceled or timed-out cell resets the VM, and `repl.reset()` clears state explicitly. Host calls must finish within their cell. A guest continuation explicitly resumed by a later cell runs under that cell's execution. The app controls effects already dispatched and may commit the separate JSON `store` returned by a successful cell.
-
-Bind trusted app objects selectively. An admitted data member exposes its complete plain value, so keep credentials in the host. Run the executor in a worker when the app must stay responsive during guest CPU work. The app remains responsible for choosing which conversation, records, and operations the REPL can access.
+The agent receives Pi's generated declarations in the `execute` description. Inside JavaScript, use `tools.report_scores({})` and `ALL_TOOLS` to list the available operations. Use top-level `await` and `return`, `text(value)`, or `image(value)` for output. If the app needs explicit state across calls, it can pass a JSON store and apply the `storeWrites` from successful runs. Scope state and operations to the authorized app context. Closing the sandbox stops active scripts and aborts their pending tool calls. An app effect already dispatched remains in effect.

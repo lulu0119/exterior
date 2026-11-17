@@ -48,6 +48,6 @@ If the app uses a registered client, tell the person it is for development: befo
 
 ## Expose app tools
 
-Use the protocol SDK's [`serveMcp`](../packages/sdk/README.md#serving-tools-to-an-agent) to serve tools through the relay. To offer Code Mode, add the optional [Client SDK](../packages/client-sdk/README.md) and declare which app methods and values scripts can access. Give the agent the MCP endpoint during ACP session setup after checking its HTTP MCP capability.
+Use the protocol SDK's [`serveMcp`](../packages/sdk/README.md#serving-tools-to-an-agent) to serve tools through the relay. To offer Code Mode, add the optional [Client SDK](../packages/client-sdk/README.md) and declare the app operations a script can call. Give the agent the MCP endpoint during ACP session setup after checking its HTTP MCP capability.
 
-Bind the script environment to the selected conversation and app context, such as a report or the current AUV device. With a real agent, verify discovery, a two-cell script that reuses a variable, and cancellation. Verify that switching the context creates a clean environment. The app determines the capabilities and any permissions required for an operation.
+Bind the operations to the selected app context, such as a report or the current AUV device. With a real agent, verify that it can find an operation, compose two operations in one execution, and cancel a running script. Verify the next call uses the newly selected context after switching.
