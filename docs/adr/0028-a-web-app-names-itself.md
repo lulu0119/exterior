@@ -4,7 +4,7 @@ Status: accepted, amended by 0029. Supersedes 0021.
 
 A web app used to have two standard ways in: register itself at the provider's registration endpoint (RFC 7591, unauthenticated), or name itself by the address of a Client ID Metadata Document. Registration was what a page served over http used, since the relay cannot fetch a document from it, so it was really the path for development. It cost a lot for that: an open endpoint anyone could fill, a pending marker on every registration, pruning those nobody approved within an hour, a reserved-name check, a registration cached in each browser, one Authorized apps row per browser, and the rate limiting it still needed.
 
-Now a web app names itself by its metadata document, or uses a client an account registered on the relay. The relay has no anonymous registration endpoint. A copy of the app in development signs in under the published document, which lists a loopback redirect beside the real one (RFC 8252). The provider accepts a loopback redirect on any port, and the relay already asks the person on every sign-in that returns to this computer, since any program here can listen on that port. Example's document lists `http://localhost:5173/oauth/callback`, so `pnpm example` signs in to any relay as Example.
+Now a web app names itself by its metadata document, or uses a client an account registered on the relay. The relay has no anonymous registration endpoint. A copy of the app in development signs in under the published document, which lists a loopback redirect beside the real one (RFC 8252). The provider accepts a loopback redirect on any port, and the relay already asks the person on every sign-in that returns to this computer, since any program here can listen on that port. Example lists its entry URLs directly, including `http://localhost:5173/` for `pnpm example`.
 
 The relay knows the project's own metadata documents, Example's and the device software's, without fetching them. A relay without internet access, or one running before the documents are published, still signs in both.
 
@@ -14,7 +14,7 @@ The consent page no longer marks apps Unverified. The mark was for names anyone 
 
 - **Keep self-registration for development only.** Rejected. It keeps every cost above for one case a loopback redirect already covers, and an endpoint open in development is open in production.
 - **Let a development relay fetch a metadata document over http from this computer.** Rejected. The client id would not be the published app's, the provider refuses non-https documents, and it is a rule no other relay would follow.
-- **Register a client through an account for each developer.** Kept as the way for an app with nowhere to publish a document. It is not required for Example. [0029](0029-an-assistant-sets-up-a-web-app.md) supplies the assistant-driven setup flow.
+- **Register a client through an account.** Kept for apps that use a client ID on one relay. [0029](0029-an-assistant-sets-up-a-web-app.md) supplies the assistant-driven setup flow.
 - **Keep the Unverified mark, now for documents whose redirect is elsewhere.** Rejected. An account-registered client would still pass without anyone having checked it, and a person reads an unmarked app as checked.
 
 ## Consequences

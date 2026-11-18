@@ -8,7 +8,7 @@ The web app is the ACP client. The daemon forwards each message to the agent and
 
 ## Use
 
-1. Have your coding assistant follow [app setup](docs/app-setup.md). The assistant gives you a link, you approve the app on the relay, and the assistant picks up its public app id over HTTP. To do it by hand, use Register app on the dashboard. Registration is for development; a released app names itself by a metadata document on its site ([which client id](packages/sdk/README.md#which-client-id)).
+1. Choose how the app gets its client ID. Register it on a relay through [app setup](docs/app-setup.md) or Register app on the dashboard. To use the same identity across relays, publish a [metadata document](packages/sdk/README.md#which-client-id) on the app's site.
 2. Sign in a device on the same relay so it runs agents: [manual](docs/manual.md). Connect the web app with [`@exterioragentprotocol/sdk`](packages/sdk/README.md).
 3. The app lists the account's online devices and opens one agent over a one-time WebSocket address it uses as the ACP connection.
 

@@ -6,22 +6,27 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { test } from "vitest";
 import { useAccount } from "./react.js";
 
-test("a callback under a custom base signs in and returns to the app root", async () => {
+const redirectUri = new URL("/studio/", window.location.origin).href;
+const pendingSignIn = JSON.stringify({ codeVerifier: "verifier-1", state: "state-1" });
+
+test("the app's entry URL redeems the code once and clears only OAuth parameters", async () => {
   const relay = await fakeTokenRelay();
   try {
-    window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
-    window.sessionStorage.setItem("exterior.state", "state-1");
-    const redirectUri = `${relay.origin}/playground/oauth/callback`;
+    const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri };
+    window.sessionStorage.setItem("exterior.signIn", pendingSignIn);
     const callback = new URL(redirectUri);
+    callback.searchParams.set("workspace", "agent");
     callback.searchParams.set("code", "code-1");
     callback.searchParams.set("state", "state-1");
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     act(() => {
       window.history.replaceState({}, "", `${callback.pathname}${callback.search}`);
     });
-    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client", redirectUri, returnTo: "/playground/" }));
+    const { result } = renderHook(() => useAccount(config), { reactStrictMode: true });
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
-    assert.equal(window.location.pathname, "/playground/");
+    assert.equal(window.location.pathname, "/studio/");
+    assert.equal(window.location.search, "?workspace=agent");
+    assert.equal(relay.redemptions(), 1);
     assert.equal(window.sessionStorage.getItem("exterior.accessToken"), "access-1");
   } finally {
     relay.close();
@@ -29,21 +34,39 @@ test("a callback under a custom base signs in and returns to the app root", asyn
   }
 });
 
-test("without a redirect address the callback stays at the root path", async () => {
+test("opening the entry URL normally does not attempt OAuth redemption", async () => {
   const relay = await fakeTokenRelay();
   try {
-    window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
-    window.sessionStorage.setItem("exterior.state", "state-1");
-    const callback = new URL("/oauth/callback", window.location.origin);
-    callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", "state-1");
-    callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    act(() => {
-      window.history.replaceState({}, "", `${callback.pathname}${callback.search}`);
-    });
-    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client" }));
-    await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
-    assert.equal(window.location.pathname, "/");
+    act(() => window.history.replaceState({}, "", "/studio/?code=example&state=draft"));
+    const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }));
+    await waitFor(() => assert.equal(result.current.account.phase, "signed-out"));
+    assert.equal(result.current.error, "");
+    assert.equal(window.location.search, "?code=example&state=draft");
+    assert.equal(relay.redemptions(), 0);
+  } finally {
+    relay.close();
+    window.sessionStorage.clear();
+  }
+});
+
+test.each([
+  { name: "the browser rewrites the callback path", uri: "/studio", startsHere: true, response: "code-and-state", message: /Expected .*\/studio\// },
+  { name: "the login attempt is missing from the tab", uri: "/studio/", startsHere: false, response: "code-and-state", message: /Start sign-in again in this tab/ },
+  { name: "the response has no state", uri: "/studio/", startsHere: true, response: "code-only", message: /missing its state/ },
+  { name: "the response has no code or error", uri: "/studio/", startsHere: true, response: "state-only", message: /no authorization code or error/ },
+])("shows a sign-in error when $name", async ({ uri, startsHere, response, message }) => {
+  const relay = await fakeTokenRelay();
+  const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri };
+  try {
+    if (startsHere) window.sessionStorage.setItem("exterior.signIn", pendingSignIn);
+    const params = new URLSearchParams({ iss: `${relay.origin}/api/auth` });
+    if (response !== "state-only") params.set("code", "code-1");
+    if (response !== "code-only") params.set("state", "state-1");
+    act(() => window.history.replaceState({}, "", `${uri}?${params}`));
+    const { result } = renderHook(() => useAccount(config));
+    await waitFor(() => assert.match(result.current.error, message));
+    assert.equal(result.current.account.phase, "signed-out");
+    assert.equal(relay.redemptions(), 0);
   } finally {
     relay.close();
     window.sessionStorage.clear();
@@ -56,7 +79,7 @@ test("an access token about to expire is refreshed once for callers that race", 
     window.sessionStorage.setItem("exterior.accessToken", "access-1");
     window.sessionStorage.setItem("exterior.refreshToken", "refresh-1");
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
-    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client" }));
+    const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     assert.equal(await result.current.accessToken(), "access-1");
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 30_000));
@@ -74,7 +97,7 @@ test("account operations obtain a live token and share a refresh before listing 
     window.sessionStorage.setItem("exterior.accessToken", "access-1");
     window.sessionStorage.setItem("exterior.refreshToken", "refresh-1");
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
-    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client" }));
+    const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 30_000));
     const [devices, connection] = await Promise.all([result.current.listDevices(), result.current.openConnection({ deviceId: "studio", agentName: "work" })]);
@@ -94,7 +117,7 @@ test("a sign-in the relay no longer honors signs the account out when a token is
     window.sessionStorage.setItem("exterior.accessToken", "access-1");
     window.sessionStorage.setItem("exterior.refreshToken", "refresh-1");
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now() + 3_600_000));
-    const { result } = renderHook(() => useAccount(relay.origin, { clientId: "example-client" }));
+    const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     window.sessionStorage.setItem("exterior.expiresAt", String(Date.now()));
     await act(() => assert.rejects(result.current.accessToken(), { message: "Sign in again." }));
@@ -107,7 +130,8 @@ test("a sign-in the relay no longer honors signs the account out when a token is
 });
 
 // Discovery, code redemption, token rotation, and authenticated EAP requests.
-async function fakeTokenRelay(options: { refusesRefresh?: boolean } = {}): Promise<{ origin: string; close: () => void; refreshes: () => number; requests: () => string[] }> {
+async function fakeTokenRelay(options: { refusesRefresh?: boolean } = {}) {
+  let redemptions = 0;
   let refreshes = 0;
   const requests: string[] = [];
   const server: Server = createServer((request, response) => {
@@ -136,6 +160,7 @@ async function fakeTokenRelay(options: { refusesRefresh?: boolean } = {}): Promi
       }
       if (url.pathname === "/api/auth/oauth2/token") {
         if (new URLSearchParams(Buffer.concat(chunks).toString()).get("grant_type") !== "refresh_token") {
+          redemptions += 1;
           return json(response, { access_token: "access-1", token_type: "bearer", expires_in: 3600 });
         }
         refreshes += 1;
@@ -154,7 +179,7 @@ async function fakeTokenRelay(options: { refusesRefresh?: boolean } = {}): Promi
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The fake relay did not bind.");
-  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close(), refreshes: () => refreshes, requests: () => requests };
+  return { origin: `http://127.0.0.1:${address.port}`, close: () => server.close(), redemptions: () => redemptions, refreshes: () => refreshes, requests: () => requests };
 }
 
 function json(response: import("node:http").ServerResponse, body: unknown, status = 200): void {

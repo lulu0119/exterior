@@ -4,8 +4,8 @@
   "client_uri": "https://lulu0119.github.io/exterior/",
   "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
   "redirect_uris": [
-    "https://lulu0119.github.io/exterior/oauth/callback",
-    "http://localhost:5173/oauth/callback"
+    "https://lulu0119.github.io/exterior/",
+    "http://localhost:5173/"
   ],
   "grant_types": [
     "authorization_code",

@@ -25,9 +25,10 @@ Import only the entry for your role. `client` and the root run in a browser; `de
 ```tsx
 import { useAccount } from "@exterioragentprotocol/sdk/client/react";
 
-const session = useAccount(relayUrl, {
-  redirectUri: `${window.location.origin}/oauth/callback`,
-  clientId: "https://my-app.example.com/oauth-client.json",
+const session = useAccount({
+  relayUrl,
+  clientId: "https://my-app.example.com/studio/oauth-client.json",
+  redirectUri: "https://my-app.example.com/studio/",
 });
 
 if (session.account.phase === "signed-in") {
@@ -36,34 +37,35 @@ if (session.account.phase === "signed-in") {
 }
 ```
 
-`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut, accessToken, listDevices, openConnection }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in" }`. Prefer the returned `listDevices(signal?)` and `openConnection({ deviceId, agentName }, signal?)`: each obtains a live token, sharing a refresh when callers race. `accessToken()` is available for lower-level calls; it refreshes a token about to expire, and once the sign-in is gone it rejects and signs the account out. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
+Set `redirectUri` to the exact URL the relay can return to. Use the app entry or a dedicated callback. Mount the hook at that address before routing code rewrites the URL or third-party scripts read it. The hook clears OAuth parameters, validates the response, and stores tokens in `sessionStorage`. After sign-in it restores the page that started the flow. Set `returnTo` in `useAccount` to override that destination with a URL on the same origin as the callback. `signOut()` clears the stored session.
+
+The hook reports its `account` phase (`checking`, `signed-out`, or `signed-in`), `busy`, and `error`. `listDevices(signal?)` and `openConnection({ deviceId, agentName }, signal?)` obtain a live token for each request. Use `accessToken()` for lower-level calls.
 
 ## Which client id
 
 An app names itself in one of two ways.
 
-**A released app publishes a Client ID Metadata Document** on its own site and passes the document's https address as `clientId`. Every relay reads the name, logo, and callbacks from it, no account owns it, and each account authorizes the app once. This is the identity to ship. List a loopback callback beside the deployed one, and local development signs in under the same id: the relay accepts any port on it (RFC 8252), and asks every time, because any process on the computer can listen on that port. Example publishes this one:
+**Publish a Client ID Metadata Document** to use one identity across relays. Pass the document's public HTTPS address as `clientId`. Each relay reads the app name and allowed redirects from it. A document can list both HTTPS and loopback redirects. The relay asks for consent on every loopback sign-in and accepts any loopback port (RFC 8252). For the Studio app above:
 
 ```json
 {
-  "client_id": "https://lulu0119.github.io/exterior/oauth-client.json",
-  "client_name": "Example",
-  "client_uri": "https://lulu0119.github.io/exterior/",
-  "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
-  "redirect_uris": ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  "client_id": "https://my-app.example.com/studio/oauth-client.json",
+  "client_name": "Studio",
+  "client_uri": "https://my-app.example.com/studio/",
+  "redirect_uris": ["https://my-app.example.com/studio/", "http://localhost:5173/studio/"],
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none"
 }
 ```
 
-**An app in development registers a client** before it has a site. Have your coding assistant follow [app setup](../../docs/app-setup.md), or use Register app on the relay's dashboard. Pass the client id, the relay address, and the registered `redirectUri` to `useAccount`. Registration names the app and its callback and grants nothing; signing in to the app asks for access to devices. The id works only on that relay and belongs to the account that registered it, so publish a metadata document before release and switch `clientId` to it. People authorize the app again under the new id.
+**Register a client on one relay** when the app will use that relay. Follow [app setup](../../docs/app-setup.md) or use Register app on its dashboard. Pass the configuration directly to `useAccount(config)`. An account owns the registration, and the ID belongs to that relay. The app asks for device access when a person signs in.
 
 There is no anonymous registration.
 
 ## Without React
 
-`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })` redeems the code on return; when a framework mounts the callback twice, racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId })` returns a live access token, refreshing within the last minute of expiry, or `undefined` once the sign-in is gone; callers that race share one refresh, and a relay that does not answer rejects without signing out. `clearBrowserSignIn(store)` signs out.
+`beginBrowserSignIn({ relayUrl, redirectUri, store, clientId, returnTo })` returns the relay address to navigate to. Pass `sessionStorage` as `store`. `returnTo` is optional. `finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })` redeems the code and returns the tokens and saved `returnTo`. Racing callers share one redemption. `storedAccessToken({ relayUrl, store, clientId })` returns a live access token, refreshing within the last minute of expiry, or `undefined` once the sign-in is gone. Callers that race share one refresh. `clearBrowserSignIn(store)` signs out.
 
 ## Devices and connections
 

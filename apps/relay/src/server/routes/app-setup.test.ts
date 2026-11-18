@@ -4,11 +4,11 @@ import { appSetupPath, appSetupResultPath, clientRegistryPath } from "@exterior/
 import { test, vi } from "vitest";
 import { openSignedInRelay, sessionCookie } from "../testing.js";
 
-const clientName = "AUV Playground Dev";
-const redirectUri = "http://127.0.0.1:5180/playground/oauth/callback";
+const clientName = "Studio Dev";
+const redirectUri = "http://localhost:5173/studio/";
 
-function setupUrl(setupId: string): string {
-  return `${appSetupPath}?${new URLSearchParams({ setup_id: setupId, client_name: clientName, redirect_uri: redirectUri })}`;
+function setupUrl(setupId: string, entryUrl = redirectUri): string {
+  return `${appSetupPath}?${new URLSearchParams({ setup_id: setupId, client_name: clientName, redirect_uri: entryUrl })}`;
 }
 
 function approval(html: string): string {
@@ -33,7 +33,7 @@ test("an assistant registers a local app after account approval, polls for it, a
 
   const page = await app.request(setupUrl(setupId), { headers: { cookie } });
   const html = await page.text();
-  assert.match(html.replace(/<!-- -->/g, ""), /Register AUV Playground Dev with Exterior\?/);
+  assert.match(html.replace(/<!-- -->/g, ""), /Register Studio Dev with Exterior\?/);
   assert.match(html, /No access to your devices yet/);
   const decide = (token: string, decision = "register") => app.request(clientRegistryPath, {
     method: "POST", headers: { cookie, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ approval: token, decision }),
@@ -44,19 +44,25 @@ test("an assistant registers a local app after account approval, polls for it, a
   assert.equal(new URL(lostLogin.headers.get("location")!, "http://127.0.0.1:8787").searchParams.get("next"), setupUrl(setupId));
   const accepted = await Promise.all([decide(token), decide(token)]);
   for (const response of accepted) assert.equal(response.status, 200, await response.clone().text());
-  const result = await (await poll()).json() as { status: string; clientId: string; clientName: string; redirectUri: string };
+  const result = await (await poll()).json() as { status: string; config: { relayUrl: string; clientId: string; redirectUri: string } };
   assert.equal(result.status, "registered");
-  assert.ok(result.clientId);
-  assert.equal(result.clientName, clientName);
-  assert.equal(result.redirectUri, redirectUri);
+  assert.ok(result.config.clientId);
+  assert.equal(result.config.relayUrl, "http://127.0.0.1:8787");
+  assert.equal(result.config.redirectUri, redirectUri);
+  const dashboard = await app.request(new URL(clientRegistryPath, "https://dashboard.example.test"), {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ clientName, redirectUris: [redirectUri], confidential: false }),
+  });
+  assert.equal(dashboard.status, 201);
+  assert.deepEqual(await dashboard.json(), { config: result.config });
   assert.equal((await poll(randomUUID())).status, 202);
   assert.deepEqual(await (await app.request("/api/grants", { headers: { cookie } })).json(), { apps: [] });
 
   const again = randomUUID();
   const againPage = await app.request(setupUrl(again), { headers: { cookie } });
   assert.equal((await decide(approval(await againPage.text()))).status, 200);
-  const repeated = await (await poll(again)).json() as { clientId: string };
-  assert.equal(repeated.clientId, result.clientId);
+  assert.deepEqual(await (await poll(again)).json(), result);
 });
 
 test("registration decisions are signed, bound to the account, expiring, and cancellation reaches the assistant", async () => {
@@ -83,7 +89,7 @@ test("registration decisions are signed, bound to the account, expiring, and can
   assert.equal((await decide(token, cookie, "deny")).status, 200);
   const poll = await app.request(`${appSetupResultPath}/${setupId}`);
   assert.deepEqual(await poll.json(), { status: "denied" });
-  assert.equal((await app.request(setupUrl(setupId).replace("http%3A%2F%2F127.0.0.1%3A5180", "http%3A%2F%2Fremote.example"))).status, 400);
+  assert.equal((await app.request(setupUrl(setupId, "http://studio.example.test/"))).status, 400);
 });
 
 test("a sign-in continuation cannot leave the relay", async () => {

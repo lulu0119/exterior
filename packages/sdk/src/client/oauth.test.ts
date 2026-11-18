@@ -8,46 +8,35 @@ import { revokeRefreshToken } from "../oauth.js";
 import {
   beginBrowserSignIn,
   clearBrowserSignIn,
-  createAuthorizationRequest,
   finishBrowserSignIn,
   listDevices,
   openConnection,
   type BrowserStore,
 } from "./oauth.js";
 
-test("a known client builds an authorization url and exchanges the callback", async () => {
+test("a known client uses a fixed callback and keeps the page to open after sign-in", async () => {
   const relay = await fakeRelay();
   const store = memoryStore();
+  const redirectUri = `${relay.origin}/oauth/callback?app=studio`;
+  const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri, store };
   try {
-    const request = await createAuthorizationRequest({
-      relayUrl: relay.origin,
-      clientId: "example-client",
-      redirectUri: `${relay.origin}/oauth/callback`,
-    });
-    store.setItem("exterior.codeVerifier", request.codeVerifier);
-    store.setItem("exterior.state", request.state);
-    const url = new URL(request.url);
+    const url = new URL(await beginBrowserSignIn({ ...config, returnTo: "/studio/project/42?view=agent#latest" }));
     assert.equal(url.origin + url.pathname, `${relay.origin}/api/auth/oauth2/authorize`);
     assert.equal(url.searchParams.get("client_id"), "example-client");
     assert.equal(url.searchParams.get("scope"), "eap:client offline_access");
     assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
     assert.ok(url.searchParams.get("code_challenge"));
-    assert.equal(url.searchParams.get("state"), request.state);
-    const callback = new URL("/oauth/callback", relay.origin);
+    assert.equal(url.searchParams.get("redirect_uri"), redirectUri);
+    const callback = new URL(redirectUri);
     callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", request.state);
+    callback.searchParams.set("state", url.searchParams.get("state")!);
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
-    const tokens = await finishBrowserSignIn({
-      relayUrl: relay.origin,
-      clientId: "example-client",
-      redirectUri: `${relay.origin}/oauth/callback`,
-      callbackUrl: callback.href,
-      store,
-    });
+    const tokens = await finishBrowserSignIn({ ...config, callbackUrl: callback.href });
     assert.equal(tokens.accessToken, "access-1");
+    assert.equal(tokens.returnTo, `${relay.origin}/studio/project/42?view=agent#latest`);
     assert.equal(store.getItem("exterior.accessToken"), "access-1");
-    assert.equal(store.getItem("exterior.codeVerifier"), null);
+    await assert.rejects(finishBrowserSignIn({ ...config, callbackUrl: callback.href }), /Start sign-in again in this tab/);
   } finally {
     relay.close();
   }
@@ -117,11 +106,9 @@ test("a web app signs in with its metadata document's address", async () => {
     assert.equal(url.searchParams.get("scope"), "eap:client offline_access");
     assert.equal(url.searchParams.get("resource"), relay.origin);
     assert.equal(url.searchParams.get("code_challenge_method"), "S256");
-    assert.ok(store.getItem("exterior.codeVerifier"));
-    assert.ok(store.getItem("exterior.state"));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", store.getItem("exterior.state") ?? "");
+    callback.searchParams.set("state", url.searchParams.get("state")!);
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     const tokens = await finishBrowserSignIn({ relayUrl: relay.origin, redirectUri, callbackUrl: callback.href, store, clientId });
     assert.equal(tokens.accessToken, "access-1");
@@ -146,11 +133,11 @@ test("two racing callback exchanges share one code redemption", async () => {
   const store = memoryStore();
   const redirectUri = `${relay.origin}/oauth/callback`;
   try {
-    store.setItem("exterior.codeVerifier", "verifier-1");
-    store.setItem("exterior.state", "state-1");
+    const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri, store };
+    const url = new URL(await beginBrowserSignIn(config));
     const callback = new URL("/oauth/callback", relay.origin);
     callback.searchParams.set("code", "code-1");
-    callback.searchParams.set("state", "state-1");
+    callback.searchParams.set("state", url.searchParams.get("state")!);
     callback.searchParams.set("iss", `${relay.origin}/api/auth`);
     const input = {
       relayUrl: relay.origin,
@@ -166,6 +153,16 @@ test("two racing callback exchanges share one code redemption", async () => {
   } finally {
     relay.close();
   }
+});
+
+test("a sign-in continuation cannot take the browser to another site", async () => {
+  await assert.rejects(beginBrowserSignIn({
+    relayUrl: "http://localhost:8787",
+    clientId: "example-client",
+    redirectUri: "http://localhost:5173/studio/",
+    returnTo: "//other.example.test/",
+    store: memoryStore(),
+  }), /must be on the same site/);
 });
 
 function memoryStore(): BrowserStore {
