@@ -3,14 +3,19 @@ import type { Hono } from "hono";
 import { readAccount } from "../identity/session.js";
 import type { RelayEnv } from "../http.js";
 import type { ExteriorAuth } from "../identity/auth.js";
-import { parseClientRegistration, registerClient } from "../identity/clients.js";
+import { parseClientRegistration, registerClient, type ClientRegistration } from "../identity/clients.js";
 import { listGrantedApps, revokeGrant } from "../identity/grants.js";
 import { appSetupPage, createAppSetupResults, isSetupId, parseAppSetup, readAppSetupApproval } from "../identity/app-setup.js";
 import type { PageRenderer } from "../rendering/render-page.js";
+import type { AppRegistrationResponse } from "../../shared/account-web.js";
 
 /** `revokeClient` ends what the client holds open once the account revokes it. */
 export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revokeClient: (input: { userId: string; clientId: string }) => void, render: PageRenderer): void {
   const results = createAppSetupResults();
+  async function registerApp(userId: string, registration: ClientRegistration): Promise<AppRegistrationResponse> {
+    const { clientId, clientSecret } = await registerClient(exterior, userId, registration);
+    return { config: { relayUrl: exterior.publicUrl, clientId, redirectUri: registration.redirectUris[0]! }, clientSecret };
+  }
   app.get(appSetupPath, async (c) => {
     c.header("Cache-Control", "no-store");
     c.header("Referrer-Policy", "no-referrer");
@@ -47,8 +52,8 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revoke
         outcome = await results.decide(setup, async () => {
           if (body.decision === "deny") return { status: "denied" };
           try {
-            const registered = await registerClient(exterior, account.userId, { clientName: setup.clientName, redirectUris: [setup.redirectUri], confidential: false });
-            return { status: "registered", clientId: registered.clientId, clientName: setup.clientName, redirectUri: setup.redirectUri };
+            const { config } = await registerApp(account.userId, { clientName: setup.clientName, redirectUris: [setup.redirectUri], confidential: false });
+            return { status: "registered", config };
           } catch (error) {
             return { status: "failed", code: "registration_failed", message: error instanceof Error ? error.message : "Exterior could not register the app." };
           }
@@ -67,8 +72,7 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revoke
     const parsed = parseClientRegistration(await c.req.json().catch(() => undefined));
     if (!parsed.ok) return c.json({ message: parsed.errors.join(" ") }, 400);
     try {
-      const registered = await registerClient(exterior, account.userId, parsed.value);
-      return c.json(registered, 201);
+      return c.json(await registerApp(account.userId, parsed.value), 201);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Exterior could not register the client.";
       return c.json({ message }, message.includes("at most") ? 429 : 502);

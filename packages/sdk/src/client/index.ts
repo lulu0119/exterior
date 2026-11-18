@@ -1,6 +1,5 @@
 export {
   beginBrowserSignIn,
-  browserCallbackPath,
   clearBrowserSignIn,
   finishBrowserSignIn,
   listDevices,

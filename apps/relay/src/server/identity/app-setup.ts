@@ -2,14 +2,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ExteriorAuth } from "./auth.js";
 import { parseClientRegistration } from "./clients.js";
 import type { Account } from "./session.js";
-import type { AccountPage } from "../../shared/account-web.js";
+import type { AccountPage, AppRegistrationResponse } from "../../shared/account-web.js";
 
 const lifetimeMs = 10 * 60_000;
 
 export type AppSetup = { setupId: string; clientName: string; redirectUri: string };
 type Approval = AppSetup & { userId: string; expiresAt: number };
 export type AppSetupOutcome =
-  | { status: "registered"; clientId: string; clientName: string; redirectUri: string }
+  | { status: "registered"; config: AppRegistrationResponse["config"] }
   | { status: "denied" }
   | { status: "failed"; code: string; message: string };
 

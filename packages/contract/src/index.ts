@@ -28,7 +28,7 @@ export const exampleClient = {
   client_name: "Example",
   client_uri: "https://lulu0119.github.io/exterior/",
   logo_uri: "https://lulu0119.github.io/exterior/oauth-client-logo.png",
-  redirect_uris: ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  redirect_uris: ["https://lulu0119.github.io/exterior/", "http://localhost:5173/"],
   grant_types: ["authorization_code", "refresh_token"],
   response_types: ["code"],
   token_endpoint_auth_method: "none",

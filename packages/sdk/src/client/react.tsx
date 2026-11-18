@@ -1,6 +1,6 @@
-import { beginBrowserSignIn, browserCallbackPath, clearBrowserSignIn, finishBrowserSignIn, listDevices, openConnection, storedAccessToken, type OpenedAgent } from "./oauth.js";
+import { beginBrowserSignIn, clearBrowserSignIn, finishBrowserSignIn, isBrowserSignInResponse, listDevices, openConnection, storedAccessToken, type BrowserClientConfig, type OpenedAgent } from "./oauth.js";
 import type { Device } from "../index.js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Account = { phase: "checking" } | { phase: "signed-out" } | { phase: "signed-in" };
 
@@ -19,31 +19,27 @@ export type AccountSession = {
   openConnection: (input: { deviceId: string; agentName: string }, signal?: AbortSignal) => Promise<OpenedAgent>;
 };
 
-export function useAccount(
-  relayUrl: string,
-  init: {
-    /** The https address of the app's Client ID Metadata Document, or a client an account registered. */
-    clientId: string;
-    redirectUri?: string;
-    returnTo?: string;
-  },
-): AccountSession {
+export function useAccount({ relayUrl, clientId, redirectUri, returnTo }: BrowserClientConfig & { returnTo?: string }): AccountSession {
   const [account, setAccount] = useState<Account>({ phase: "checking" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { clientId } = init;
-  const redirectUri = init.redirectUri ?? new URL(browserCallbackPath, window.location.origin).href;
-  const returnTo = init.returnTo ?? "/";
+  const redemption = useRef<Promise<string> | undefined>(undefined);
 
   useEffect(() => {
     const store = window.sessionStorage;
-    const returning = window.location.pathname === new URL(redirectUri).pathname;
-    const token = returning
-      ? finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl: window.location.href, store, clientId }).then((tokens) => {
-          window.history.replaceState({}, "", returnTo);
-          return tokens.accessToken;
+    const current = new URL(window.location.href);
+    if (isBrowserSignInResponse(current, store)) {
+      const callbackUrl = current.href;
+      for (const parameter of ["code", "state", "iss", "error", "error_description", "error_uri"]) current.searchParams.delete(parameter);
+      window.history.replaceState(window.history.state, "", current);
+      redemption.current = finishBrowserSignIn({ relayUrl, redirectUri, callbackUrl, store, clientId })
+        .then(({ accessToken, returnTo: destination }) => {
+          if (destination && destination !== window.location.href) window.location.replace(destination);
+          return accessToken;
         })
-      : storedAccessToken({ relayUrl, store, clientId });
+        .finally(() => { redemption.current = undefined; });
+    }
+    const token = redemption.current ?? storedAccessToken({ relayUrl, store, clientId });
     let cancelled = false;
     void token
       .then((current) => {
@@ -58,12 +54,12 @@ export function useAccount(
     return () => {
       cancelled = true;
     };
-  }, [relayUrl, clientId, redirectUri, returnTo]);
+  }, [relayUrl, clientId, redirectUri]);
 
   const signIn = useCallback(() => {
     setBusy(true);
     setError("");
-    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage, clientId })
+    void beginBrowserSignIn({ relayUrl, redirectUri, store: window.sessionStorage, clientId, returnTo: returnTo ?? window.location.href })
       .then((url) => {
         window.location.assign(url);
       })
@@ -71,7 +67,7 @@ export function useAccount(
         setError(error instanceof Error ? error.message : "The relay did not answer.");
         setBusy(false);
       });
-  }, [relayUrl, redirectUri, clientId]);
+  }, [relayUrl, redirectUri, clientId, returnTo]);
 
   const signOut = useCallback(() => {
     clearBrowserSignIn(window.sessionStorage);

@@ -2,16 +2,16 @@ import { CircleAlertIcon, PlusIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Alert, AlertDescription } from "@exterior/ui/alert";
 import { Button } from "@exterior/ui/button";
-import { useCopy } from "@exterior/ui/copy-button";
+import { CopyButton } from "@exterior/ui/copy-button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@exterior/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@exterior/ui/field";
 import { Input } from "@exterior/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@exterior/ui/input-group";
+import type { AppRegistrationResponse } from "../../shared/account-web.js";
 
 const appSetupGuide = "https://github.com/lulu0119/exterior/blob/main/docs/app-setup.md";
 const clientIdGuide = "https://github.com/lulu0119/exterior/blob/main/packages/sdk/README.md#which-client-id";
 
-type Registered = { clientId: string; clientName: string; redirectUri: string };
+type Registered = { clientName: string; configuration: string };
 
 /** The same registration a coding assistant's setup link makes. */
 export function RegisterAppDialog() {
@@ -48,12 +48,15 @@ export function RegisterAppDialog() {
         window.location.assign("/sign-in?next=%2F");
         return;
       }
-      const body = (await response.json().catch(() => undefined)) as { clientId?: string; message?: string } | undefined;
-      if (!response.ok || !body?.clientId) {
+      const body = (await response.json().catch(() => undefined)) as { config?: AppRegistrationResponse["config"]; message?: string } | undefined;
+      if (!response.ok || !body?.config) {
         setProblem(body?.message ?? "Exterior could not register the app. Try again.");
         return;
       }
-      setRegistered({ clientId: body.clientId, clientName: clientName.trim(), redirectUri: redirectUri.trim() });
+      setRegistered({
+        clientName: clientName.trim(),
+        configuration: JSON.stringify(body.config, null, 2),
+      });
     } catch {
       setProblem("Exterior could not be reached. Try again.");
     } finally {
@@ -73,22 +76,21 @@ export function RegisterAppDialog() {
             <DialogHeader className="gap-1 pr-8">
               <DialogTitle className="font-display text-xl font-bold">{registered.clientName} registered</DialogTitle>
               <DialogDescription>
-                Pass these to the app's sign-in. They are public. Access to your devices is asked for when you sign in to the app.
+                Pass this public configuration to the app's sign-in. The app requests device access when someone signs in.
               </DialogDescription>
             </DialogHeader>
-            <FieldGroup className="gap-4">
-              <CopyField id="registered-relay" label="Relay" value={window.location.origin} />
-              <CopyField id="registered-client" label="Client id" value={registered.clientId} />
-              <CopyField id="registered-callback" label="Callback" value={registered.redirectUri} />
-            </FieldGroup>
-            <DialogFooter showCloseButton />
+            <pre className="overflow-auto rounded-md bg-muted p-4 font-mono text-sm">{registered.configuration}</pre>
+            <DialogFooter>
+              <DialogClose render={<Button variant="secondary" />}>Close</DialogClose>
+              <CopyButton label="Copy configuration" text={registered.configuration} />
+            </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader className="gap-1 pr-8">
               <DialogTitle className="font-display text-xl font-bold">Register an app</DialogTitle>
               <DialogDescription>
-                Give an app in development a client id on this relay. A coding assistant can do this for you with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>. A released app names itself by a <a href={clientIdGuide} target="_blank" rel="noreferrer">metadata document</a> on its site instead.
+                Give an app a client ID on this relay. A coding assistant can help with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>. An app that uses multiple relays can publish its own <a href={clientIdGuide} target="_blank" rel="noreferrer">metadata document</a>.
               </DialogDescription>
             </DialogHeader>
             <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
@@ -99,9 +101,9 @@ export function RegisterAppDialog() {
                   <FieldDescription>Shown when someone signs in to the app.</FieldDescription>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="register-app-callback">Callback</FieldLabel>
-                  <Input id="register-app-callback" required type="url" className="font-mono" spellCheck={false} placeholder="http://localhost:5173/oauth/callback" value={redirectUri} onChange={(event) => setRedirectUri(event.target.value)} />
-                  <FieldDescription>Where the app returns after sign-in: https, or http on localhost, 127.0.0.1, or [::1].</FieldDescription>
+                  <FieldLabel htmlFor="register-app-callback">App URL</FieldLabel>
+                  <Input id="register-app-callback" required type="url" className="font-mono" spellCheck={false} placeholder="http://localhost:5173/" value={redirectUri} onChange={(event) => setRedirectUri(event.target.value)} />
+                  <FieldDescription>Use the app entry URL or a dedicated sign-in callback.</FieldDescription>
                 </Field>
               </FieldGroup>
               {problem ? (
@@ -119,20 +121,5 @@ export function RegisterAppDialog() {
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function CopyField({ id, label, value }: { id: string; label: string; value: string }) {
-  const { copy, status, icon } = useCopy(value, `Copy ${label.toLowerCase()}`);
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <InputGroup>
-        <InputGroupInput id={id} readOnly value={value} className="font-mono" onFocus={(event) => event.currentTarget.select()} />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton variant="ghost" size="icon-xs" onClick={copy} aria-label={status} title={status} aria-live="polite">{icon}</InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-    </Field>
   );
 }

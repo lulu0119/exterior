@@ -118,7 +118,7 @@ test("a development copy of Example signs in as Example through its loopback red
       return new Response(null, { status: 404 });
     },
   });
-  const local = "http://localhost:5199/oauth/callback";
+  const local = "http://localhost:5199/";
   const prompted = new URL(await authorizeLocation(app, cookie, exampleClient.client_id, local), publicUrl);
   assert.equal(prompted.pathname, "/consent");
   assert.deepEqual(fetched, []);
@@ -259,8 +259,8 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
     body: JSON.stringify({ clientName: "Studio", redirectUris: ["https://app.example.test/callback"], confidential: true }),
   });
   assert.equal(registered.status, 201);
-  const created = (await registered.json()) as { clientId?: string; clientSecret?: string };
-  assert.ok(created.clientId);
+  const created = (await registered.json()) as { config: { clientId: string }; clientSecret?: string };
+  assert.ok(created.config.clientId);
   assert.ok(created.clientSecret);
 
   const local = { clientName: "Studio", redirectUris: ["http://localhost:5173/oauth/callback"] };
@@ -273,7 +273,7 @@ test("a signed-in account registers, lists, revokes, and re-approves", async () 
   });
   assert.equal(rejected.status, 400);
 
-  const clientId = created.clientId ?? "";
+  const clientId = created.config.clientId;
   const firstLocation = await authorizeLocation(app, cookie, clientId, "https://app.example.test/callback");
   assert.equal(new URL(firstLocation, publicUrl).pathname, "/consent");
   const query = new URL(firstLocation, publicUrl).search.slice(1);
@@ -325,7 +325,7 @@ async function registerApp(app: Hono<RelayEnv>, cookie: string, input: { clientN
     body: JSON.stringify({ ...input, confidential: false }),
   });
   assert.equal(registered.status, 201, await registered.clone().text());
-  return ((await registered.json()) as { clientId: string }).clientId;
+  return ((await registered.json()) as { config: { clientId: string } }).config.clientId;
 }
 
 /** Authorizes the approval a consent page shows. */

@@ -1,15 +1,17 @@
-import { clientScope, connectionsPath, devicesPath, errorCodes, isDevice, type Device, type ErrorCode } from "../index.js";
+import { clientScope, connectionsPath, devicesPath, errorCodes, isDevice, parseJson, type Device, type ErrorCode } from "../index.js";
 import * as oauth from "oauth4webapi";
 import { discover, isRecord, oauthMessage, originOf, publicClient, refreshAccessToken, RefreshTokenRejectedError, requestOptions, toTokens, type Tokens } from "../oauth.js";
 
 const refreshWindowMs = 60_000;
 const signInScope = `${clientScope} offline_access`;
 
-export async function createAuthorizationRequest(input: {
+export type BrowserClientConfig = {
   relayUrl: string;
   clientId: string;
   redirectUri: string;
-}): Promise<{ url: string; codeVerifier: string; state: string }> {
+};
+
+async function createAuthorizationRequest(input: BrowserClientConfig): Promise<{ url: string; codeVerifier: string; state: string }> {
   const server = await discover(input.relayUrl);
   if (!server.authorization_endpoint) throw new Error("The relay did not publish a sign-in address.");
   const codeVerifier = oauth.generateRandomCodeVerifier();
@@ -26,20 +28,16 @@ export async function createAuthorizationRequest(input: {
   return { url: url.href, codeVerifier, state };
 }
 
-export async function exchangeAuthorizationCode(input: {
-  relayUrl: string;
-  clientId: string;
-  redirectUri: string;
-  callbackUrl: string;
+async function exchangeAuthorizationCode(input: BrowserClientConfig & {
+  callback: URL;
   codeVerifier: string;
   state: string;
 }): Promise<Tokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
-  const callback = new URL(input.callbackUrl);
   let params: URLSearchParams;
   try {
-    params = oauth.validateAuthResponse(server, client, callback, input.state);
+    params = oauth.validateAuthResponse(server, client, input.callback, input.state);
   } catch (error) {
     throw new Error(oauthMessage(error, "Sign in again."));
   }
@@ -106,68 +104,100 @@ export function relayError(status: number, body: unknown, fallback: string): Rel
   return new RelayError(named ?? (status === 401 ? "unauthorized" : "server_error"), status, message);
 }
 
-export const browserCallbackPath = "/oauth/callback";
-
 export type BrowserStore = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 };
 
-const verifierKey = "exterior.codeVerifier";
-const stateKey = "exterior.state";
+const signInKey = "exterior.signIn";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
+
+export function isBrowserSignInResponse(url: URL, store: BrowserStore): boolean {
+  const params = url.searchParams;
+  const hasResult = params.has("code") || params.has("error");
+  const hasState = params.has("state");
+  return params.has("iss")
+    ? hasResult || hasState
+    : hasResult && hasState && store.getItem(signInKey) !== null;
+}
 
 /**
  * Starts a sign-in and returns the relay address to send the person to. `clientId` is the https address of the
  * app's Client ID Metadata Document, or a client an account registered on the relay.
  */
-export async function beginBrowserSignIn(input: { relayUrl: string; redirectUri: string; store: BrowserStore; clientId: string }): Promise<string> {
-  const request = await createAuthorizationRequest({ relayUrl: input.relayUrl, clientId: input.clientId, redirectUri: input.redirectUri });
-  input.store.setItem(verifierKey, request.codeVerifier);
-  input.store.setItem(stateKey, request.state);
-  return request.url;
+export async function beginBrowserSignIn(input: BrowserClientConfig & { store: BrowserStore; returnTo?: string }): Promise<string> {
+  const returnTo = sameOriginReturnAddress(input.returnTo, new URL(input.redirectUri).origin);
+  const { url, codeVerifier, state } = await createAuthorizationRequest(input);
+  input.store.setItem(signInKey, JSON.stringify({ codeVerifier, state, returnTo }));
+  return url;
 }
 
-export async function finishBrowserSignIn(input: {
-  relayUrl: string;
-  redirectUri: string;
+export async function finishBrowserSignIn({ callbackUrl, store, ...config }: BrowserClientConfig & {
   callbackUrl: string;
   store: BrowserStore;
-  clientId: string;
-}): Promise<Tokens> {
-  const codeVerifier = input.store.getItem(verifierKey);
-  const state = input.store.getItem(stateKey);
-  if (!codeVerifier || !state) throw new Error("Sign in again.");
+}): Promise<BrowserSignInResult> {
+  const redirect = new URL(config.redirectUri);
+  const callback = new URL(callbackUrl);
+  validateCallbackAddress(callback, redirect);
+  const stored = store.getItem(signInKey);
+  const attempt = parseJson(stored ?? "");
+  if (!isRecord(attempt) || typeof attempt.codeVerifier !== "string" || typeof attempt.state !== "string") {
+    throw new Error("Sign-in was started in another tab or its session ended. Start sign-in again in this tab.");
+  }
+  if (!callback.searchParams.has("state")) throw new Error("The sign-in response is missing its state. Start sign-in again.");
+  if (!callback.searchParams.has("code") && !callback.searchParams.has("error")) {
+    throw new Error("The sign-in response has no authorization code or error. Start sign-in again.");
+  }
+  const returnTo = sameOriginReturnAddress(typeof attempt.returnTo === "string" ? attempt.returnTo : undefined, redirect.origin);
+  const { codeVerifier, state } = attempt;
   // A code redeems once, but a framework may mount the callback twice:
   // racing callers for the same code share one redemption.
-  const key = `${input.redirectUri}\n${new URL(input.callbackUrl).searchParams.get("code") ?? ""}`;
+  const key = `${config.relayUrl}\n${config.clientId}\n${config.redirectUri}\n${state}\n${callback.search}`;
   const racing = pendingCallbackExchanges.get(key);
   if (racing) return racing;
-  const run = exchangeAuthorizationCode({
-    relayUrl: input.relayUrl,
-    clientId: input.clientId,
-    redirectUri: input.redirectUri,
-    callbackUrl: input.callbackUrl,
-    codeVerifier,
-    state,
-  })
+  const run = exchangeAuthorizationCode({ ...config, callback, codeVerifier, state })
     .then((tokens) => {
-      writeBrowserTokens(input.store, tokens);
-      input.store.removeItem(verifierKey);
-      input.store.removeItem(stateKey);
-      return tokens;
+      writeBrowserTokens(store, tokens);
+      return { ...tokens, returnTo };
     })
     .finally(() => {
-      if (pendingCallbackExchanges.get(key) === run) pendingCallbackExchanges.delete(key);
+      pendingCallbackExchanges.delete(key);
+      if (callback.searchParams.get("state") === state && store.getItem(signInKey) === stored) {
+        store.removeItem(signInKey);
+      }
     });
   pendingCallbackExchanges.set(key, run);
   return run;
 }
 
-const pendingCallbackExchanges = new Map<string, Promise<Tokens>>();
+type BrowserSignInResult = Tokens & { returnTo?: string };
+
+const pendingCallbackExchanges = new Map<string, Promise<BrowserSignInResult>>();
+
+function sameOriginReturnAddress(value: string | undefined, origin: string): string | undefined {
+  if (value === undefined) return undefined;
+  const destination = new URL(value, origin);
+  if (destination.origin !== origin || (destination.protocol !== "https:" && destination.protocol !== "http:")) {
+    throw new Error("The page to open after sign-in must be on the same site as the callback.");
+  }
+  return destination.href;
+}
+
+function validateCallbackAddress(callback: URL, redirect: URL): void {
+  if (callback.origin !== redirect.origin || callback.pathname !== redirect.pathname) {
+    throw new Error(`Sign-in returned to ${callback.origin}${callback.pathname}. Expected ${redirect.origin}${redirect.pathname}.`);
+  }
+  for (const key of new Set(redirect.searchParams.keys())) {
+    const expected = redirect.searchParams.getAll(key);
+    const received = callback.searchParams.getAll(key);
+    if (expected.length !== received.length || expected.some((value, index) => value !== received[index])) {
+      throw new Error("The sign-in response does not match the configured callback query.");
+    }
+  }
+}
 
 /**
  * A live access token, refreshed within the last minute of its life, or undefined once the sign-in is gone. A relay
@@ -208,6 +238,7 @@ function writeBrowserTokens(store: BrowserStore, tokens: Tokens): void {
 }
 
 export function clearBrowserSignIn(store: BrowserStore): void {
+  store.removeItem(signInKey);
   store.removeItem(accessKey);
   store.removeItem(refreshKey);
   store.removeItem(expiresKey);
