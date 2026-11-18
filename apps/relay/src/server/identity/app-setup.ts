@@ -3,13 +3,14 @@ import type { ExteriorAuth } from "./auth.js";
 import { parseClientRegistration } from "./clients.js";
 import type { Account } from "./session.js";
 import type { AccountPage } from "../../shared/account-web.js";
+import type { BrowserClientConfig } from "@exterioragentprotocol/sdk/client";
 
 const lifetimeMs = 10 * 60_000;
 
 export type AppSetup = { setupId: string; clientName: string; redirectUri: string };
 type Approval = AppSetup & { userId: string; expiresAt: number };
 export type AppSetupOutcome =
-  | { status: "registered"; config: { relayUrl: string; clientId: string; redirectUri: string } }
+  | { status: "registered"; config: BrowserClientConfig }
   | { status: "denied" }
   | { status: "failed"; code: string; message: string };
 

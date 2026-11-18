@@ -14,7 +14,7 @@ The consent page no longer marks apps Unverified. The mark was for names anyone 
 
 - **Keep self-registration for development only.** Rejected. It keeps every cost above for one case a loopback redirect already covers, and an endpoint open in development is open in production.
 - **Let a development relay fetch a metadata document over http from this computer.** Rejected. The client id would not be the published app's, the provider refuses non-https documents, and it is a rule no other relay would follow.
-- **Register a client through an account for each developer.** Kept as the way for an app with nowhere to publish a document. It is not required for Example. [0029](0029-an-assistant-sets-up-a-web-app.md) supplies the assistant-driven setup flow.
+- **Register a client through an account.** Kept for apps that use a client ID on one relay. [0029](0029-an-assistant-sets-up-a-web-app.md) supplies the assistant-driven setup flow.
 - **Keep the Unverified mark, now for documents whose redirect is elsewhere.** Rejected. An account-registered client would still pass without anyone having checked it, and a person reads an unmarked app as checked.
 
 ## Consequences

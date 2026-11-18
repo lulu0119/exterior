@@ -6,6 +6,7 @@ import { CopyButton } from "@exterior/ui/copy-button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@exterior/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@exterior/ui/field";
 import { Input } from "@exterior/ui/input";
+import type { BrowserClientConfig } from "@exterioragentprotocol/sdk/client";
 
 const appSetupGuide = "https://github.com/lulu0119/exterior/blob/main/docs/app-setup.md";
 const clientIdGuide = "https://github.com/lulu0119/exterior/blob/main/packages/sdk/README.md#which-client-id";
@@ -47,14 +48,14 @@ export function RegisterAppDialog() {
         window.location.assign("/sign-in?next=%2F");
         return;
       }
-      const body = (await response.json().catch(() => undefined)) as { clientId?: string; message?: string } | undefined;
-      if (!response.ok || !body?.clientId) {
+      const body = (await response.json().catch(() => undefined)) as { config?: BrowserClientConfig; message?: string } | undefined;
+      if (!response.ok || !body?.config) {
         setProblem(body?.message ?? "Exterior could not register the app. Try again.");
         return;
       }
       setRegistered({
         clientName: clientName.trim(),
-        configuration: JSON.stringify({ relayUrl: window.location.origin, clientId: body.clientId, redirectUri: redirectUri.trim() }, null, 2),
+        configuration: JSON.stringify(body.config, null, 2),
       });
     } catch {
       setProblem("Exterior could not be reached. Try again.");
@@ -89,7 +90,7 @@ export function RegisterAppDialog() {
             <DialogHeader className="gap-1 pr-8">
               <DialogTitle className="font-display text-xl font-bold">Register an app</DialogTitle>
               <DialogDescription>
-                Give an app in development a client id on this relay. A coding assistant can do this for you with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>. A released app names itself by a <a href={clientIdGuide} target="_blank" rel="noreferrer">metadata document</a> on its site instead.
+                Give an app a client ID on this relay. A coding assistant can help with <a href={appSetupGuide} target="_blank" rel="noreferrer">app setup</a>. An app that uses multiple relays can publish its own <a href={clientIdGuide} target="_blank" rel="noreferrer">metadata document</a>.
               </DialogDescription>
             </DialogHeader>
             <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
@@ -102,7 +103,7 @@ export function RegisterAppDialog() {
                 <Field>
                   <FieldLabel htmlFor="register-app-callback">App URL</FieldLabel>
                   <Input id="register-app-callback" required type="url" className="font-mono" spellCheck={false} placeholder="http://localhost:5173/" value={redirectUri} onChange={(event) => setRedirectUri(event.target.value)} />
-                  <FieldDescription>Use the app entry URL. Sign-in returns here.</FieldDescription>
+                  <FieldDescription>Use the app entry URL or a dedicated sign-in callback.</FieldDescription>
                 </Field>
               </FieldGroup>
               {problem ? (

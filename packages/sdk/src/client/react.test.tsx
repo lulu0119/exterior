@@ -7,12 +7,13 @@ import { test } from "vitest";
 import { useAccount } from "./react.js";
 
 const redirectUri = new URL("/studio/", window.location.origin).href;
+const pendingSignIn = JSON.stringify({ codeVerifier: "verifier-1", state: "state-1" });
 
 test("the app's entry URL redeems the code once and clears only OAuth parameters", async () => {
   const relay = await fakeTokenRelay();
   try {
-    window.sessionStorage.setItem("exterior.codeVerifier", "verifier-1");
-    window.sessionStorage.setItem("exterior.state", "state-1");
+    const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri };
+    window.sessionStorage.setItem("exterior.signIn", pendingSignIn);
     const callback = new URL(redirectUri);
     callback.searchParams.set("workspace", "agent");
     callback.searchParams.set("code", "code-1");
@@ -21,7 +22,7 @@ test("the app's entry URL redeems the code once and clears only OAuth parameters
     act(() => {
       window.history.replaceState({}, "", `${callback.pathname}${callback.search}`);
     });
-    const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }), { reactStrictMode: true });
+    const { result } = renderHook(() => useAccount(config), { reactStrictMode: true });
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
     assert.equal(window.location.pathname, "/studio/");
     assert.equal(window.location.search, "?workspace=agent");
@@ -41,6 +42,30 @@ test("opening the entry URL normally does not attempt OAuth redemption", async (
     await waitFor(() => assert.equal(result.current.account.phase, "signed-out"));
     assert.equal(result.current.error, "");
     assert.equal(window.location.search, "?code=example&state=draft");
+    assert.equal(relay.redemptions(), 0);
+  } finally {
+    relay.close();
+    window.sessionStorage.clear();
+  }
+});
+
+test.each([
+  { name: "the browser rewrites the callback path", uri: "/studio", startsHere: true, response: "code-and-state", message: /Expected .*\/studio\// },
+  { name: "the login attempt is missing from the tab", uri: "/studio/", startsHere: false, response: "code-and-state", message: /Start sign-in again in this tab/ },
+  { name: "the response has no state", uri: "/studio/", startsHere: true, response: "code-only", message: /missing its state/ },
+  { name: "the response has no code or error", uri: "/studio/", startsHere: true, response: "state-only", message: /no authorization code or error/ },
+])("shows a sign-in error when $name", async ({ uri, startsHere, response, message }) => {
+  const relay = await fakeTokenRelay();
+  const config = { relayUrl: relay.origin, clientId: "example-client", redirectUri };
+  try {
+    if (startsHere) window.sessionStorage.setItem("exterior.signIn", pendingSignIn);
+    const params = new URLSearchParams({ iss: `${relay.origin}/api/auth` });
+    if (response !== "state-only") params.set("code", "code-1");
+    if (response !== "code-only") params.set("state", "state-1");
+    act(() => window.history.replaceState({}, "", `${uri}?${params}`));
+    const { result } = renderHook(() => useAccount(config));
+    await waitFor(() => assert.match(result.current.error, message));
+    assert.equal(result.current.account.phase, "signed-out");
     assert.equal(relay.redemptions(), 0);
   } finally {
     relay.close();

@@ -49,6 +49,13 @@ test("an assistant registers a local app after account approval, polls for it, a
   assert.ok(result.config.clientId);
   assert.equal(result.config.relayUrl, "http://127.0.0.1:8787");
   assert.equal(result.config.redirectUri, redirectUri);
+  const dashboard = await app.request(new URL(clientRegistryPath, "https://dashboard.example.test"), {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ clientName, redirectUris: [redirectUri], confidential: false }),
+  });
+  assert.equal(dashboard.status, 201);
+  assert.deepEqual(await dashboard.json(), { config: result.config });
   assert.equal((await poll(randomUUID())).status, 202);
   assert.deepEqual(await (await app.request("/api/grants", { headers: { cookie } })).json(), { apps: [] });
 
