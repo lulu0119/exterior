@@ -25,9 +25,10 @@ Import only the entry for your role. `client` and the root run in a browser; `de
 ```tsx
 import { useAccount } from "@exterioragentprotocol/sdk/client/react";
 
-const session = useAccount(relayUrl, {
-  redirectUri: `${window.location.origin}/oauth/callback`,
-  clientId: "https://my-app.example.com/oauth-client.json",
+const session = useAccount({
+  relayUrl,
+  clientId: "https://my-app.example.com/studio/oauth-client.json",
+  redirectUri: "https://my-app.example.com/studio/",
 });
 
 if (session.account.phase === "signed-in") {
@@ -36,7 +37,9 @@ if (session.account.phase === "signed-in") {
 }
 ```
 
-`useAccount(relayUrl, init)` returns `{ account, busy, error, signIn, signOut, accessToken, listDevices, openConnection }`. `account` is `{ phase: "checking" }`, `{ phase: "signed-out" }`, or `{ phase: "signed-in" }`. Prefer the returned `listDevices(signal?)` and `openConnection({ deviceId, agentName }, signal?)`: each obtains a live token, sharing a refresh when callers race. `accessToken()` is available for lower-level calls; it refreshes a token about to expire, and once the sign-in is gone it rejects and signs the account out. `init` takes `clientId` (below), `redirectUri` (default `<page origin>/oauth/callback`), and `returnTo` (default `/`). `signIn` navigates to the relay; on return the hook redeems the code, replaces the address bar with `returnTo`, and stores the tokens in `sessionStorage`. `signOut` clears them.
+Use the application's entry URL as `redirectUri` and register that exact address. `signIn()` navigates to the relay. On return, the hook removes OAuth parameters, redeems the code, and stores tokens in `sessionStorage`. Run this handling before third-party scripts that can read the URL. `signOut()` clears the stored tokens.
+
+The hook reports its `account` phase (`checking`, `signed-out`, or `signed-in`), `busy`, and `error`. `listDevices(signal?)` and `openConnection({ deviceId, agentName }, signal?)` obtain a live token for each request. Use `accessToken()` for lower-level calls.
 
 ## Which client id
 
@@ -50,14 +53,14 @@ An app names itself in one of two ways.
   "client_name": "Example",
   "client_uri": "https://lulu0119.github.io/exterior/",
   "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
-  "redirect_uris": ["https://lulu0119.github.io/exterior/oauth/callback", "http://localhost:5173/oauth/callback"],
+  "redirect_uris": ["https://lulu0119.github.io/exterior/", "http://localhost:5173/"],
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none"
 }
 ```
 
-**An app in development registers a client** before it has a site. Have your coding assistant follow [app setup](../../docs/app-setup.md), or use Register app on the relay's dashboard. Pass the client id, the relay address, and the registered `redirectUri` to `useAccount`. Registration names the app and its callback and grants nothing; signing in to the app asks for access to devices. The id works only on that relay and belongs to the account that registered it, so publish a metadata document before release and switch `clientId` to it. People authorize the app again under the new id.
+**An app in development registers a client** before it has a site. Have your coding assistant follow [app setup](../../docs/app-setup.md), or use Register app on the relay's dashboard. Pass the returned configuration directly to `useAccount(config)`. Registration names the app and its callback and grants nothing; signing in to the app asks for access to devices. The id works only on that relay and belongs to the account that registered it, so publish a metadata document before release and switch `clientId` to it. People authorize the app again under the new id.
 
 There is no anonymous registration.
 

@@ -9,7 +9,7 @@ const lifetimeMs = 10 * 60_000;
 export type AppSetup = { setupId: string; clientName: string; redirectUri: string };
 type Approval = AppSetup & { userId: string; expiresAt: number };
 export type AppSetupOutcome =
-  | { status: "registered"; clientId: string; clientName: string; redirectUri: string }
+  | { status: "registered"; config: { relayUrl: string; clientId: string; redirectUri: string } }
   | { status: "denied" }
   | { status: "failed"; code: string; message: string };
 

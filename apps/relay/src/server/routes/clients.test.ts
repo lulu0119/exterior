@@ -118,7 +118,7 @@ test("a development copy of Example signs in as Example through its loopback red
       return new Response(null, { status: 404 });
     },
   });
-  const local = "http://localhost:5199/oauth/callback";
+  const local = "http://localhost:5199/";
   const prompted = new URL(await authorizeLocation(app, cookie, exampleClient.client_id, local), publicUrl);
   assert.equal(prompted.pathname, "/consent");
   assert.deepEqual(fetched, []);

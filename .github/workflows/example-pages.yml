@@ -33,7 +33,7 @@ jobs:
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_EXTERIOR_URL: ${{ vars.VITE_EXTERIOR_URL || 'https://relay.apps.superpowerlulu.win' }}
-      - run: cp apps/example/dist/index.html apps/example/dist/404.html && touch apps/example/dist/.nojekyll
+      - run: touch apps/example/dist/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -4,7 +4,7 @@ Instructions for a coding assistant integrating a new or existing app. Use an ex
 
 ## Inspect
 
-Read the SDK README before changing the app. Inspect the worktree, package manager, framework, base path, existing OAuth configuration, and tests. Preserve unrelated work. Identify the app's name, its actual local origin, and the complete callback path. A Vite app under `/playground/` might return to `http://127.0.0.1:5180/playground/oauth/callback`. Keep `localhost` and `127.0.0.1` consistent with the page the person opens.
+Read the SDK README before changing the app. Identify the app's name and exact entry URL, including its base path and trailing slash. Use that as `redirectUri`, for example `http://127.0.0.1:5180/playground/`. Keep `localhost` and `127.0.0.1` consistent with the page the person opens.
 
 ## Establish the app identity
 
@@ -27,21 +27,28 @@ Otherwise the app is in development: register a client for it with two plain HTT
    ```
 
    - `202` `{ "status": "pending" }`: keep polling. If nothing changes for several minutes, ask the person whether they opened the link.
-   - `200` `{ "status": "registered", "clientId", "clientName", "redirectUri" }`: check that the name and callback are the ones you sent, then stop.
+   - `200` `{ "status": "registered", "config": { "relayUrl", "clientId", "redirectUri" } }`: check that `config.redirectUri` is the entry URL you sent. Pass `config` to the SDK.
    - `200` `{ "status": "denied" }`: the person cancelled. Ask before starting again with a new id.
    - `200` `{ "status": "failed", "code", "message" }`: report the message.
-   - `404`: this relay predates app setup. Use another relay, or an existing client id.
+   - `404`: check the relay URL and the setup result path.
 
 The result stays for ten minutes after the person decides. It contains no account tokens. Setting up again for the same account, name, and callback returns the same client id. Registration does not grant access to devices.
 
-If the person already registered the app with Register app on the relay's dashboard, use the client id they give you instead.
+If the person registers by hand, ask them for the configuration from **Copy configuration** on the relay dashboard.
 
-Save the relay address, client id, and callback where the app keeps its configuration. All three are public and can be committed.
+Save that public configuration where the app keeps its settings.
 
 ## Integrate and verify
 
-Install the SDK using its documented package address. Pass its relay, client id, and callback to `useAccount`. Set `returnTo` to the app's own base path. Use `session.listDevices()` and `session.openConnection(...)`; they obtain live tokens. Own one WebSocket per returned connection, dial its ticket once, and close it when the connection is abandoned. A dropped connection needs a new connection; follow the SDK's ACP resume guidance rather than replaying pending requests.
+Install the SDK using its documented package address and pass the configuration to `useAccount(config)`. Use `session.listDevices()` and `session.openConnection(...)` to list devices and open an agent. Follow the SDK's [connection and resume guidance](../packages/sdk/README.md#devices-and-connections).
 
 Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent. App-specific dependencies such as a codemode proxy remain the app's responsibility.
 
-If the app uses a registered client, tell the person it is for development: before release, publish a metadata document and switch the client id to it, and people authorize the app again. Report where the configuration lives, the relay and public identity, changed code, checks run, and which live steps actually succeeded. Setup is complete only when the app can sign in and initialize a real agent; if credentials, a device, or an agent are unavailable, name that exact remaining step. Publish or commit only when requested.
+Before release, publish the metadata document and use its HTTPS address as `clientId`. Add the released entry URL to `redirect_uris` alongside the local entry you use for development. From outside the deployment, check that `clientId` returns JSON and that both the ID and entry URL match the SDK configuration:
+
+```sh
+curl -fsS "$client_id" | jq -e --arg id "$client_id" --arg uri "$redirect_uri" \
+  '.client_id == $id and (.redirect_uris | index($uri) != null)'
+```
+
+People authorize the released identity on first use. Setup is complete when the app signs in and initializes a real agent. Report the configuration and the checks you ran, including any live steps still pending. Publish or commit only when requested.

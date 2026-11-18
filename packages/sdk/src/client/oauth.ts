@@ -106,8 +106,6 @@ export function relayError(status: number, body: unknown, fallback: string): Rel
   return new RelayError(named ?? (status === 401 ? "unauthorized" : "server_error"), status, message);
 }
 
-export const browserCallbackPath = "/oauth/callback";
-
 export type BrowserStore = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -119,6 +117,12 @@ const stateKey = "exterior.state";
 const accessKey = "exterior.accessToken";
 const refreshKey = "exterior.refreshToken";
 const expiresKey = "exterior.expiresAt";
+
+export function isBrowserSignInResponse(url: URL, redirect: URL, store: BrowserStore): boolean {
+  return url.origin === redirect.origin && url.pathname === redirect.pathname
+    && store.getItem(stateKey) !== null
+    && url.searchParams.has("state") && (url.searchParams.has("code") || url.searchParams.has("error"));
+}
 
 /**
  * Starts a sign-in and returns the relay address to send the person to. `clientId` is the https address of the

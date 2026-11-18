@@ -48,7 +48,7 @@ export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revoke
           if (body.decision === "deny") return { status: "denied" };
           try {
             const registered = await registerClient(exterior, account.userId, { clientName: setup.clientName, redirectUris: [setup.redirectUri], confidential: false });
-            return { status: "registered", clientId: registered.clientId, clientName: setup.clientName, redirectUri: setup.redirectUri };
+            return { status: "registered", config: { relayUrl: exterior.publicUrl, clientId: registered.clientId, redirectUri: setup.redirectUri } };
           } catch (error) {
             return { status: "failed", code: "registration_failed", message: error instanceof Error ? error.message : "Exterior could not register the app." };
           }

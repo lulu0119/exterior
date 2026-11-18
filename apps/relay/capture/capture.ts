@@ -129,6 +129,15 @@ const surfaces: Surface[] = [
       await fillRegisterApp(page);
       await page.getByRole("dialog").getByRole("button", { name: "Register app" }).click();
       await page.getByRole("heading", { name: "Studio Dev registered" }).waitFor();
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      const button = page.getByRole("button", { name: "Copy configuration" });
+      await button.click();
+      await page.getByRole("button", { name: "Copied" }).waitFor();
+      const { relayUrl, clientId, redirectUri } = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+      if (relayUrl !== new URL(page.url()).origin || !clientId || redirectUri !== "http://localhost:5173/") {
+        throw new Error("The dashboard did not copy the registered application's SDK configuration.");
+      }
+      await button.waitFor();
     },
   },
   {
@@ -137,7 +146,7 @@ const surfaces: Surface[] = [
     // A development copy of Example, on this computer, asking for the first time.
     ready: async (page) => {
       const origin = new URL(page.url()).origin;
-      await page.goto(authorizeUrl(origin, exampleClient.client_id, "http://localhost:5173/oauth/callback"));
+      await page.goto(authorizeUrl(origin, exampleClient.client_id, "http://localhost:5173/"));
       await page.waitForSelector("text=wants to use agents on your devices");
     },
   },
@@ -159,7 +168,7 @@ const surfaces: Surface[] = [
 async function fillRegisterApp(page: import("playwright").Page): Promise<void> {
   await page.getByRole("button", { name: "Register app" }).click();
   await page.getByLabel("Name").fill("Studio Dev");
-  await page.getByLabel("Callback").fill("http://localhost:5173/oauth/callback");
+  await page.getByLabel("App URL").fill("http://localhost:5173/");
 }
 
 async function showAppRegistration(page: import("playwright").Page, setupId: string = randomUUID()): Promise<void> {
@@ -167,7 +176,7 @@ async function showAppRegistration(page: import("playwright").Page, setupId: str
   url.search = new URLSearchParams({
     setup_id: setupId,
     client_name: "AUV Playground Dev",
-    redirect_uri: "http://127.0.0.1:5180/playground/oauth/callback",
+    redirect_uri: "http://127.0.0.1:5180/playground/",
   }).toString();
   await page.goto(url.href);
   await page.getByRole("button", { name: "Register app", exact: true }).waitFor();
@@ -179,7 +188,7 @@ async function verifyAppSetup(page: import("playwright").Page): Promise<void> {
   const result = new URL(`${appSetupResultPath}/${setupId}`, page.url());
   const poll = async () => {
     const response = await fetch(result);
-    return { status: response.status, body: await response.json() as { status?: string; clientId?: string } };
+    return { status: response.status, body: await response.json() as { status?: string; config?: { relayUrl: string; clientId: string; redirectUri: string } } };
   };
   if ((await poll()).status !== 202) throw new Error("A setup nobody approved yet did not read as pending.");
   await showAppRegistration(page, setupId);
@@ -198,7 +207,7 @@ async function verifyAppSetup(page: import("playwright").Page): Promise<void> {
   }
   await page.getByRole("heading", { name: "AUV Playground Dev registered" }).waitFor();
   const outcome = await poll();
-  if (outcome.status !== 200 || outcome.body.status !== "registered" || !outcome.body.clientId) throw new Error(`The assistant did not receive the approved app id: ${JSON.stringify(outcome)}`);
+  if (outcome.status !== 200 || outcome.body.status !== "registered" || !outcome.body.config?.clientId) throw new Error(`The assistant did not receive the approved configuration: ${JSON.stringify(outcome)}`);
 }
 
 /** Example's own mark, as the inline image a registered app in this fixture sends. */
@@ -225,7 +234,7 @@ const fixtureDevices: { id?: string; hostname: string; platform?: DevicePlatform
 const fixtureApps: { clientName: string; redirectUris: string[]; logoUri?: string }[] = [
   {
     clientName: "Example",
-    redirectUris: ["https://lulu0119.github.io/exterior/oauth/callback"],
+    redirectUris: ["https://lulu0119.github.io/exterior/"],
     // The real app names the logo beside its metadata document; a capture has no internet to load it.
     logoUri: fixtureLogo,
   },
