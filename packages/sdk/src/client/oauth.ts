@@ -28,20 +28,16 @@ async function createAuthorizationRequest(input: BrowserClientConfig): Promise<{
   return { url: url.href, codeVerifier, state };
 }
 
-export async function exchangeAuthorizationCode(input: {
-  relayUrl: string;
-  clientId: string;
-  redirectUri: string;
-  callbackUrl: string;
+async function exchangeAuthorizationCode(input: BrowserClientConfig & {
+  callback: URL;
   codeVerifier: string;
   state: string;
 }): Promise<Tokens> {
   const server = await discover(input.relayUrl);
   const client = publicClient(input.clientId);
-  const callback = new URL(input.callbackUrl);
   let params: URLSearchParams;
   try {
-    params = oauth.validateAuthResponse(server, client, callback, input.state);
+    params = oauth.validateAuthResponse(server, client, input.callback, input.state);
   } catch (error) {
     throw new Error(oauthMessage(error, "Sign in again."));
   }
@@ -139,14 +135,14 @@ export async function beginBrowserSignIn(input: BrowserClientConfig & { store: B
   return url;
 }
 
-export async function finishBrowserSignIn(input: BrowserClientConfig & {
+export async function finishBrowserSignIn({ callbackUrl, store, ...config }: BrowserClientConfig & {
   callbackUrl: string;
   store: BrowserStore;
 }): Promise<BrowserSignInResult> {
-  const redirect = new URL(input.redirectUri);
-  const callback = new URL(input.callbackUrl);
+  const redirect = new URL(config.redirectUri);
+  const callback = new URL(callbackUrl);
   validateCallbackAddress(callback, redirect);
-  const stored = input.store.getItem(signInKey);
+  const stored = store.getItem(signInKey);
   const attempt = parseJson(stored ?? "");
   if (!isRecord(attempt) || typeof attempt.codeVerifier !== "string" || typeof attempt.state !== "string") {
     throw new Error("Sign-in was started in another tab or its session ended. Start sign-in again in this tab.");
@@ -156,27 +152,21 @@ export async function finishBrowserSignIn(input: BrowserClientConfig & {
     throw new Error("The sign-in response has no authorization code or error. Start sign-in again.");
   }
   const returnTo = sameOriginReturnAddress(typeof attempt.returnTo === "string" ? attempt.returnTo : undefined, redirect.origin);
+  const { codeVerifier, state } = attempt;
   // A code redeems once, but a framework may mount the callback twice:
   // racing callers for the same code share one redemption.
-  const key = `${input.relayUrl}\n${input.clientId}\n${input.redirectUri}\n${attempt.state}\n${callback.search}`;
+  const key = `${config.relayUrl}\n${config.clientId}\n${config.redirectUri}\n${state}\n${callback.search}`;
   const racing = pendingCallbackExchanges.get(key);
   if (racing) return racing;
-  const run = exchangeAuthorizationCode({
-    relayUrl: input.relayUrl,
-    clientId: input.clientId,
-    redirectUri: input.redirectUri,
-    callbackUrl: input.callbackUrl,
-    codeVerifier: attempt.codeVerifier,
-    state: attempt.state,
-  })
+  const run = exchangeAuthorizationCode({ ...config, callback, codeVerifier, state })
     .then((tokens) => {
-      writeBrowserTokens(input.store, tokens);
+      writeBrowserTokens(store, tokens);
       return { ...tokens, returnTo };
     })
     .finally(() => {
-      if (pendingCallbackExchanges.get(key) === run) pendingCallbackExchanges.delete(key);
-      if (callback.searchParams.get("state") === attempt.state && input.store.getItem(signInKey) === stored) {
-        input.store.removeItem(signInKey);
+      pendingCallbackExchanges.delete(key);
+      if (callback.searchParams.get("state") === state && store.getItem(signInKey) === stored) {
+        store.removeItem(signInKey);
       }
     });
   pendingCallbackExchanges.set(key, run);
