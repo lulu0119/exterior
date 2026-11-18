@@ -7,12 +7,16 @@ import { WebSocket } from "ws";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";
-import { onTestFinished, test } from "vitest";
+import { onTestFinished, test, vi } from "vitest";
 import { openExteriorAuth } from "../identity/auth.js";
 import { registerClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
 
 test("github sign-in sends the state cookie the callback checks", async () => {
+  const tokenExchange = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({ error: "bad_verification_code" }, { status: 400 }),
+  );
+  onTestFinished(() => { tokenExchange.mockRestore(); });
   const publicUrl = "http://127.0.0.1:8787";
   const exterior = await openExteriorAuth({
     database: new Database(":memory:"),
@@ -39,6 +43,7 @@ test("github sign-in sends the state cookie the callback checks", async () => {
   });
   const error = new URL(callback.headers.get("location") ?? publicUrl).searchParams.get("error");
   assert.equal(error, "invalid_code");
+  assert.equal(tokenExchange.mock.calls.length, 1);
 });
 
 test("approving a web app redirects back with an authorization code", async () => {

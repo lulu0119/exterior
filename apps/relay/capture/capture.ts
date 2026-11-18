@@ -175,8 +175,8 @@ async function showAppRegistration(page: import("playwright").Page, setupId: str
   const url = new URL(appSetupPath, page.url());
   url.search = new URLSearchParams({
     setup_id: setupId,
-    client_name: "AUV Playground Dev",
-    redirect_uri: "http://127.0.0.1:5180/playground/",
+    client_name: "Studio Dev",
+    redirect_uri: "http://localhost:5173/studio/",
   }).toString();
   await page.goto(url.href);
   await page.getByRole("button", { name: "Register app", exact: true }).waitFor();
@@ -205,7 +205,7 @@ async function verifyAppSetup(page: import("playwright").Page): Promise<void> {
   } finally {
     release();
   }
-  await page.getByRole("heading", { name: "AUV Playground Dev registered" }).waitFor();
+  await page.getByRole("heading", { name: "Studio Dev registered" }).waitFor();
   const outcome = await poll();
   if (outcome.status !== 200 || outcome.body.status !== "registered" || !outcome.body.config?.clientId) throw new Error(`The assistant did not receive the approved configuration: ${JSON.stringify(outcome)}`);
 }
@@ -234,8 +234,7 @@ const fixtureDevices: { id?: string; hostname: string; platform?: DevicePlatform
 const fixtureApps: { clientName: string; redirectUris: string[]; logoUri?: string }[] = [
   {
     clientName: "Example",
-    redirectUris: ["https://lulu0119.github.io/exterior/"],
-    // The real app names the logo beside its metadata document; a capture has no internet to load it.
+    redirectUris: ["https://studio.example.test/"],
     logoUri: fixtureLogo,
   },
   { clientName: "Notes", redirectUris: ["https://notes.example.test/callback"] },

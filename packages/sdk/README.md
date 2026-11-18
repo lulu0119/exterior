@@ -45,15 +45,14 @@ The hook reports its `account` phase (`checking`, `signed-out`, or `signed-in`),
 
 An app names itself in one of two ways.
 
-**A released app publishes a Client ID Metadata Document** on its own site and passes the document's https address as `clientId`. Every relay reads the name, logo, and callbacks from it, no account owns it, and each account authorizes the app once. This is the identity to ship. List a loopback callback beside the deployed one, and local development signs in under the same id: the relay accepts any port on it (RFC 8252), and asks every time, because any process on the computer can listen on that port. Example publishes this one:
+**A released app publishes a Client ID Metadata Document** on its own site and passes the document's https address as `clientId`. Every relay reads the name, logo, and callbacks from it, no account owns it, and each account authorizes the app once. This is the identity to ship. List a loopback callback beside the deployed one, and local development signs in under the same id: the relay accepts any port on it (RFC 8252), and asks every time, because any process on the computer can listen on that port. For the Studio app above:
 
 ```json
 {
-  "client_id": "https://lulu0119.github.io/exterior/oauth-client.json",
-  "client_name": "Example",
-  "client_uri": "https://lulu0119.github.io/exterior/",
-  "logo_uri": "https://lulu0119.github.io/exterior/oauth-client-logo.png",
-  "redirect_uris": ["https://lulu0119.github.io/exterior/", "http://localhost:5173/"],
+  "client_id": "https://my-app.example.com/studio/oauth-client.json",
+  "client_name": "Studio",
+  "client_uri": "https://my-app.example.com/studio/",
+  "redirect_uris": ["https://my-app.example.com/studio/", "http://localhost:5173/studio/"],
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none"

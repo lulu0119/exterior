@@ -4,7 +4,7 @@ Instructions for a coding assistant integrating a new or existing app. Use an ex
 
 ## Inspect
 
-Read the SDK README before changing the app. Identify the app's name and exact entry URL, including its base path and trailing slash. Use that as `redirectUri`, for example `http://127.0.0.1:5180/playground/`. Keep `localhost` and `127.0.0.1` consistent with the page the person opens.
+Read the SDK README before changing the app. Identify the app's name and exact entry URL, including its base path and trailing slash. Use that as `redirectUri`, for example `http://localhost:5173/studio/`. Keep `localhost` and `127.0.0.1` consistent with the page the person opens.
 
 ## Establish the app identity
 

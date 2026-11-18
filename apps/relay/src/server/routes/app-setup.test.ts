@@ -4,11 +4,11 @@ import { appSetupPath, appSetupResultPath, clientRegistryPath } from "@exterior/
 import { test, vi } from "vitest";
 import { openSignedInRelay, sessionCookie } from "../testing.js";
 
-const clientName = "AUV Playground Dev";
-const redirectUri = "http://127.0.0.1:5180/playground/";
+const clientName = "Studio Dev";
+const redirectUri = "http://localhost:5173/studio/";
 
-function setupUrl(setupId: string): string {
-  return `${appSetupPath}?${new URLSearchParams({ setup_id: setupId, client_name: clientName, redirect_uri: redirectUri })}`;
+function setupUrl(setupId: string, entryUrl = redirectUri): string {
+  return `${appSetupPath}?${new URLSearchParams({ setup_id: setupId, client_name: clientName, redirect_uri: entryUrl })}`;
 }
 
 function approval(html: string): string {
@@ -33,7 +33,7 @@ test("an assistant registers a local app after account approval, polls for it, a
 
   const page = await app.request(setupUrl(setupId), { headers: { cookie } });
   const html = await page.text();
-  assert.match(html.replace(/<!-- -->/g, ""), /Register AUV Playground Dev with Exterior\?/);
+  assert.match(html.replace(/<!-- -->/g, ""), /Register Studio Dev with Exterior\?/);
   assert.match(html, /No access to your devices yet/);
   const decide = (token: string, decision = "register") => app.request(clientRegistryPath, {
     method: "POST", headers: { cookie, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ approval: token, decision }),
@@ -82,7 +82,7 @@ test("registration decisions are signed, bound to the account, expiring, and can
   assert.equal((await decide(token, cookie, "deny")).status, 200);
   const poll = await app.request(`${appSetupResultPath}/${setupId}`);
   assert.deepEqual(await poll.json(), { status: "denied" });
-  assert.equal((await app.request(setupUrl(setupId).replace("http%3A%2F%2F127.0.0.1%3A5180", "http%3A%2F%2Fremote.example"))).status, 400);
+  assert.equal((await app.request(setupUrl(setupId, "http://studio.example.test/"))).status, 400);
 });
 
 test("a sign-in continuation cannot leave the relay", async () => {

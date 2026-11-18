@@ -6,7 +6,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { test } from "vitest";
 import { useAccount } from "./react.js";
 
-const redirectUri = new URL("/playground/", window.location.origin).href;
+const redirectUri = new URL("/studio/", window.location.origin).href;
 
 test("the app's entry URL redeems the code once and clears only OAuth parameters", async () => {
   const relay = await fakeTokenRelay();
@@ -23,7 +23,7 @@ test("the app's entry URL redeems the code once and clears only OAuth parameters
     });
     const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }), { reactStrictMode: true });
     await waitFor(() => assert.equal(result.current.account.phase, "signed-in"));
-    assert.equal(window.location.pathname, "/playground/");
+    assert.equal(window.location.pathname, "/studio/");
     assert.equal(window.location.search, "?workspace=agent");
     assert.equal(relay.redemptions(), 1);
     assert.equal(window.sessionStorage.getItem("exterior.accessToken"), "access-1");
@@ -36,7 +36,7 @@ test("the app's entry URL redeems the code once and clears only OAuth parameters
 test("opening the entry URL normally does not attempt OAuth redemption", async () => {
   const relay = await fakeTokenRelay();
   try {
-    act(() => window.history.replaceState({}, "", "/playground/?code=example&state=draft"));
+    act(() => window.history.replaceState({}, "", "/studio/?code=example&state=draft"));
     const { result } = renderHook(() => useAccount({ relayUrl: relay.origin, clientId: "example-client", redirectUri }));
     await waitFor(() => assert.equal(result.current.account.phase, "signed-out"));
     assert.equal(result.current.error, "");
