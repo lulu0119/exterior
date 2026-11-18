@@ -7,11 +7,12 @@ import { parseClientRegistration, registerClient, type ClientRegistration } from
 import { listGrantedApps, revokeGrant } from "../identity/grants.js";
 import { appSetupPage, createAppSetupResults, isSetupId, parseAppSetup, readAppSetupApproval } from "../identity/app-setup.js";
 import type { PageRenderer } from "../rendering/render-page.js";
+import type { AppRegistrationResponse } from "../../shared/account-web.js";
 
 /** `revokeClient` ends what the client holds open once the account revokes it. */
 export function mountClients(app: Hono<RelayEnv>, exterior: ExteriorAuth, revokeClient: (input: { userId: string; clientId: string }) => void, render: PageRenderer): void {
   const results = createAppSetupResults();
-  async function registerApp(userId: string, registration: ClientRegistration) {
+  async function registerApp(userId: string, registration: ClientRegistration): Promise<AppRegistrationResponse> {
     const { clientId, clientSecret } = await registerClient(exterior, userId, registration);
     return { config: { relayUrl: exterior.publicUrl, clientId, redirectUri: registration.redirectUris[0]! }, clientSecret };
   }

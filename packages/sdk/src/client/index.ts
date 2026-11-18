@@ -6,7 +6,6 @@ export {
   openConnection,
   RelayError,
   storedAccessToken,
-  type BrowserClientConfig,
   type BrowserStore,
   type OpenedAgent,
 } from "./oauth.js";

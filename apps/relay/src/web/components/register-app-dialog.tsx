@@ -6,7 +6,7 @@ import { CopyButton } from "@exterior/ui/copy-button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@exterior/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@exterior/ui/field";
 import { Input } from "@exterior/ui/input";
-import type { BrowserClientConfig } from "@exterioragentprotocol/sdk/client";
+import type { AppRegistrationResponse } from "../../shared/account-web.js";
 
 const appSetupGuide = "https://github.com/lulu0119/exterior/blob/main/docs/app-setup.md";
 const clientIdGuide = "https://github.com/lulu0119/exterior/blob/main/packages/sdk/README.md#which-client-id";
@@ -48,7 +48,7 @@ export function RegisterAppDialog() {
         window.location.assign("/sign-in?next=%2F");
         return;
       }
-      const body = (await response.json().catch(() => undefined)) as { config?: BrowserClientConfig; message?: string } | undefined;
+      const body = (await response.json().catch(() => undefined)) as { config?: AppRegistrationResponse["config"]; message?: string } | undefined;
       if (!response.ok || !body?.config) {
         setProblem(body?.message ?? "Exterior could not register the app. Try again.");
         return;

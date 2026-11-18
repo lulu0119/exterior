@@ -60,6 +60,15 @@ export type GrantedApp = {
   grantedAt: string;
 };
 
+export type AppRegistrationResponse = {
+  config: {
+    relayUrl: string;
+    clientId: string;
+    redirectUri: string;
+  };
+  clientSecret?: string;
+};
+
 /** A permission named for a person, derived from one OAuth scope. */
 export type PermissionView = { scope: string; title: string; detail: string };
 
