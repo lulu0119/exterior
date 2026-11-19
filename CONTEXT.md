@@ -56,6 +56,10 @@ _Avoid_: MCP gateway, bridge, tunnel, tool server
 Exterior's optional library for apps that expose discoverable capabilities and script execution to agents.
 _Avoid_: protocol SDK, daemon SDK
 
+**MCP Skill**:
+An app-published `SKILL.md` and its supporting files. A supporting harness discovers the skill metadata and reads files from their MCP origin on demand.
+_Avoid_: saved script, installed local skill
+
 **Code Mode**:
 A way for an agent to compose an app's capabilities in a script and use its result in a conversation.
 _Avoid_: remote shell, daemon execution

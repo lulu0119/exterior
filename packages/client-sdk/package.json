@@ -1,7 +1,7 @@
 {
   "name": "@exterioragentprotocol/client-sdk",
   "version": "0.1.0-beta.1",
-  "description": "App-owned JavaScript Code Mode for applications that serve tools over MCP.",
+  "description": "App-owned Code Mode and on-demand MCP Skills for Exterior clients.",
   "type": "module",
   "files": [
     "dist"
@@ -22,6 +22,10 @@
     "./codemode/worker": {
       "types": "./dist/codemode/browser.worker.d.ts",
       "import": "./dist/codemode/browser.worker.js"
+    },
+    "./skill": {
+      "types": "./dist/skill/index.d.ts",
+      "import": "./dist/skill/index.js"
     }
   },
   "scripts": {
@@ -38,12 +42,23 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1"
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/server": "^2.4.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/server": "2.4.0",
     "@types/node": "^24.6.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.7"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "@modelcontextprotocol/server": {
+      "optional": true
+    }
   }
 }

@@ -44,4 +44,4 @@ Meeting ideas to revisit when an app has a use for them.
 
 - Streaming results from a running cell and app-owned subscriptions that continue between cells. Each needs its own cancellation and lifetime semantics.
 - Additional script languages with bindings to the same typed application operations.
-- An API bridge for explicitly declared app capabilities, a complaint action so agents can report missing capabilities, and app-supplied prompts or skills. Define each contract with a consuming app.
+- An API bridge for explicitly declared app capabilities, a complaint action so agents can report missing capabilities, and app-supplied prompts. Define each contract with a consuming app.
