@@ -4,11 +4,11 @@ import {
   type CodemodeRemoteExchange,
   type CodemodeRemoteRequest,
   type CodemodeSandboxBaseOptions,
+  type CodemodeTool,
 } from "@earendil-works/pi-codemode/portable";
 import { createBirpc } from "birpc";
-import type { CodeModeProgram } from "./script-runtime.js";
 
-type BrowserExecution = CodemodeExecuteOptions & { program?: CodeModeProgram };
+type BrowserExecution = CodemodeExecuteOptions & { globals?: CodemodeTool[] };
 
 interface WorkerApi {
   execute(request: CodemodeRemoteRequest): Promise<void>;
@@ -27,14 +27,14 @@ export interface BrowserCodeModeOptions extends CodemodeSandboxBaseOptions {
 export function createBrowserCodeModeSandbox({ createWorker, ...options }: BrowserCodeModeOptions) {
   const lifetime = new AbortController();
 
-  async function run({ code, program, ...execution }: BrowserExecution & { code: string }) {
+  async function run({ code, globals = [], ...execution }: BrowserExecution & { code: string }) {
     const signal = execution.signal
       ? AbortSignal.any([lifetime.signal, execution.signal])
       : lifetime.signal;
     let disposeWorker: (() => void) | undefined;
     const sandbox = new RemoteCodemodeSandbox({
       ...options,
-      globals: [...(options.globals ?? []), ...(program?.globals ?? [])],
+      globals: [...(options.globals ?? []), ...globals],
       remote: () => ({
         async execute(request, exchange) {
           signal.throwIfAborted();
@@ -56,7 +56,7 @@ export function createBrowserCodeModeSandbox({ createWorker, ...options }: Brows
       }),
     });
     try {
-      return await sandbox.execute(program?.code ?? code, { ...execution, signal });
+      return await sandbox.execute(code, { ...execution, signal });
     } finally {
       // Pi settles the host at the deadline. Termination also preempts a worker
       // computing synchronously without making a tool call.

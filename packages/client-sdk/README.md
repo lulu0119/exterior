@@ -39,7 +39,7 @@ const endpoint = await serveMcp(relayUrl, accessToken, app);
 void endpoint.closed.then(() => sandbox.close());
 ```
 
-The example uses Vite's `?worker` import. The browser SDK keeps app tools in the page and gives each execution a fresh Pi VM in a module worker. The published worker includes a reference to the packaged WASM asset. A different browser bundler needs to emit that worker and asset. Pass `sandbox.run` as the MCP callback. Use `sandbox.execute(code, options)` for running source directly from the app. A Node app can construct Pi's `CodemodeSandbox` with the app tools and `request.program?.globals`, then execute `request.program?.code ?? request.code` with the request's signal and timeout.
+The example uses Vite's `?worker` import. The browser SDK keeps app tools in the page and gives each execution a fresh Pi VM in a module worker. The published worker includes a reference to the packaged WASM asset. A different browser bundler needs to emit that worker and asset. Pass `sandbox.run` as the MCP callback. Use `sandbox.execute(code, options)` for running source directly from the app. A Node app can construct Pi's `CodemodeSandbox` with the app tools and `request.globals`, then execute `request.code` with the request's signal and timeout.
 
 The agent receives Pi's generated declarations in the `execute` description. Inside JavaScript, use `tools.report_scores({})` and `ALL_TOOLS` to list the available operations. Use top-level `await` and `return`, `text(value)`, or `image(value)` for output. If the app needs explicit state across calls, it can pass a JSON store and apply the `storeWrites` from successful runs. Scope state and operations to the authorized app context. Closing the sandbox stops active scripts and aborts their pending tool calls. An app effect already dispatched remains in effect.
 
@@ -74,7 +74,7 @@ return scores.filter(score => score >= input.minimum);`,
 });
 ```
 
-Pass `scripts` to `registerCodeMode` alongside `tools` and `run`. The browser sandbox's `run` callback reads the full request, including any assembled source and catalog globals. Apps that wrap the callback for recording or to set their current context can retain the original `request.code` and forward the full request to `sandbox.run(request)`.
+Pass `scripts` to `registerCodeMode` alongside `tools` and `run`. The request's `code` is the JavaScript to execute, including the saved-script helpers. `globals` carries the catalog bindings. To add SDK setup, prepend it to `request.code` and pass the updated request to `sandbox.run()`. To record the original submission, use `request.source ?? request.code`.
 
 The harness calls the MCP `execute` tool with JavaScript. Inside that JavaScript it can use:
 

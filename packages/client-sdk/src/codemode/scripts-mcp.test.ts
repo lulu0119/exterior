@@ -4,16 +4,16 @@ import { createStorage } from "unstorage";
 import { expect, it, vi } from "vitest";
 import { createScriptLibrary, type CodeModeRequest, type CodemodeTool } from "./index.js";
 
-async function runInPi({ code, program, signal, timeoutMs }: CodeModeRequest, tools: CodemodeTool[] = []) {
-  const sandbox = new CodemodeSandbox({ tools, globals: program?.globals });
+async function runInPi({ code, globals, signal, timeoutMs }: CodeModeRequest, tools: CodemodeTool[] = []) {
+  const sandbox = new CodemodeSandbox({ tools, globals });
   try {
-    return await sandbox.execute(program?.code ?? code, { signal, timeoutMs, store: { baseline: 4 } });
+    return await sandbox.execute(code, { signal, timeoutMs, store: { baseline: 4 } });
   } finally {
     await sandbox.close();
   }
 }
 
-it("discovers app tools and saved scripts, then composes their results in one execution", async () => {
+it("composes app code, app tools, and saved scripts in one execution", async () => {
   const storage = createStorage();
   const inputSchema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -38,7 +38,10 @@ return rows.reduce((sum, score) => sum + score, 0);`,
   });
   let values = [3, 1, 7];
   const tools = [{ name: "report-scores", description: "Read report scores.", execute: () => values }];
-  const run = vi.fn((request: CodeModeRequest) => runInPi(request, tools));
+  const run = vi.fn((request: CodeModeRequest) => runInPi({
+    ...request,
+    code: `const reportAdjustment = 2;\n${request.code}`,
+  }, tools));
   const client = await connectTestCodeMode({ name: "reports", version: "1.0.0", tools, scripts, run });
   const { tools: [tool, ...others] } = await client.listTools();
   expect(others).toEqual([]);
@@ -47,7 +50,7 @@ return rows.reduce((sum, score) => sum + score, 0);`,
   const code = `const { results } = await codemode.search("scores");
 const descriptions = await Promise.all(results.map(item => codemode.describe(item.path)));
 const total = await codemode.run("total", { minimum: "3" });
-const result = total + load("baseline");
+const result = total + load("baseline") + reportAdjustment;
 return { results, descriptions, result, minimum: load("minimum") };`;
   const result = await client.callTool({ name: "execute", arguments: { code } });
   expect(result.isError).toBe(false);
@@ -55,7 +58,7 @@ return { results, descriptions, result, minimum: load("minimum") };`;
   const output = result.content[1];
   if (output.type !== "text") throw new Error("Expected a text result.");
   expect(JSON.parse(output.text)).toMatchObject({
-    result: 14, minimum: "3",
+    result: 16, minimum: "3",
     results: expect.arrayContaining([
       { kind: "method", path: "tools.report_scores", description: tools[0].description },
       { kind: "snippet", path: "scores", description: saved.description, tags: [], updatedAt: saved.updatedAt },
@@ -65,7 +68,7 @@ return { results, descriptions, result, minimum: load("minimum") };`;
       { ...saved, kind: "snippet", path: "scores", inputSchema },
     ]),
   });
-  expect(run).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code }));
+  expect(run).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code: expect.stringContaining(code), source: code }));
   const execution = run.mock.settledResults[0];
   if (execution.type !== "fulfilled") throw new Error("Expected a completed execution.");
   const completed = execution.value;
