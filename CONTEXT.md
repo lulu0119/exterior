@@ -64,6 +64,10 @@ _Avoid_: remote shell, daemon execution
 An operation an app makes callable from a script, with a description and data shapes the agent can discover.
 _Avoid_: full SDK, MCP endpoint
 
+**Saved script**:
+Named Code Mode source an app keeps for reuse, with a description and optional input schema. Its catalog belongs to that app and remains available when the app changes harnesses or ACP sessions.
+_Avoid_: harness memory, global skill, execution record
+
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.
 _Avoid_: token, code, reusable URL
