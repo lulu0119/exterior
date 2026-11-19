@@ -366,12 +366,13 @@ Which directory an ACP session works in is the client's request inside ACP, not 
 
 ## 12. MCP endpoints
 
-A client MAY give agents tools it runs itself, such as a web page's own, as an MCP server. The agent reaches it at the relay with MCP's Streamable HTTP transport, as an HTTP MCP server, such as an ACP `mcpServers` entry of type `http`. The relay ends the HTTP side and carries each MCP session's JSON-RPC messages to the client over the MCP socket, without reading what a tool is asked or answers.
+A client MAY give agents tools it runs itself, such as a web page's own, as an MCP server. The agent reaches it at the relay with MCP's Streamable HTTP transport, as an HTTP MCP server, such as an ACP `mcpServers` entry of type `http`. The relay routes each HTTP exchange to the page over the MCP socket.
 
-`POST /eap/v1/mcp-endpoints`, with no body, opens one. The client needs a grant; without one the relay answers `target_not_found`. It answers 201:
+`POST /eap/v1/mcp-endpoints` with the JSON body `{ "protocolVersion": "2026-07-28" }` opens an endpoint. A missing or unsupported revision receives HTTP 400. The client needs a grant. Without one the relay answers `target_not_found`. It answers 201:
 
 ```json
 {
+  "protocolVersion": "2026-07-28",
   "url": "wss://relay.example.com/eap/v1/mcp-endpoints/socket?ticket=...",
   "mcpUrl": "https://relay.example.com/eap/v1/mcp",
   "token": "..."
@@ -383,20 +384,27 @@ A client MAY give agents tools it runs itself, such as a web page's own, as an M
 
 ### 12.1 Agent side
 
-The relay serves MCP's Streamable HTTP at `mcpUrl`. It answers a request whose token names no endpoint with an open MCP socket 404, never 401, so an MCP client does not look for an authorization server. Each `initialize` starts an MCP session with its own `Mcp-Session-Id`. An agent cancels a request with MCP `notifications/cancelled`, which reaches the client like any other message.
+The endpoint speaks [MCP 2026-07-28 Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/changelog). The agent can send `server/discover` and supplies the protocol envelope on each request. The endpoint rejects the legacy initialize handshake. Unknown endpoint tokens receive 404. Authenticated POST requests reach the page with their Accept, Content-Type and MCP-prefixed headers. The bearer token stays at the relay. An aborted response stream cancels its exchange.
 
 ### 12.2 MCP socket
 
-Every message is a JSON text message.
+Every frame is a JSON text message carrying a relay-assigned `exchange` string and a `type`. Concurrent HTTP requests have distinct exchanges even when the JSON-RPC IDs match.
 
-- `{ "session": "<Mcp-Session-Id>", "message": { ... } }` carries one JSON-RPC message of that session, either way. The relay sends the client every message the agent sent in the session, in order; the client sends responses and notifications. A notification MAY carry `"relatedRequestId"`, the agent request it belongs to, so the relay sends it on that request's response.
-- `{ "session": "<Mcp-Session-Id>", "closed": true }`: the relay tells the client the agent ended the session.
+| Direction | Type | Additional fields and effect |
+| --- | --- | --- |
+| Relay → page | `request` | `headers` (string map) and `body` (text) for one POST. |
+| Page → relay | `response` | HTTP `status`, `contentType` (JSON, SSE or plain text MIME type), and boolean `hasBody`. A bodyless response completes the exchange. |
+| Relay → page | `pull` | Request one chunk of the response body. |
+| Page → relay | `data` | The next chunk as UTF-8 `text`. |
+| Page → relay | `end` | The response body is complete. |
+| Relay → page | `cancel` | Abort this exchange and release the reader. |
+| Page → relay | `error` | Fail the pending HTTP response or its open stream. |
 
-The client treats each session as one MCP server connection, whose first message is `initialize`. A frame is at most 16 MiB (16,777,216 bytes), because a tool result may carry an image. A frame from the client that does not follow this section closes the socket with 1008 and the reason `invalid_message`.
+Frames are limited to 16 MiB. Malformed frames close the socket with 1008 and the reason `invalid_message`. Relay-generated responses carry private cache headers. MCP resource and list cache hints travel inside their JSON-RPC results.
 
 ### 12.3 Lifetime
 
-An MCP endpoint lasts as long as its MCP socket, and is never resumed. When the socket closes, the relay answers every request the client has not answered with the JSON-RPC error -32000 and ends every session, and its token is answered 404 from then on. A client that reloads opens a new endpoint and gives it to the agent again, such as in ACP `session/resume`.
+An MCP endpoint lasts as long as its MCP socket. Closing the socket or revoking the grant fails pending exchanges with 502 or interrupts their open response streams. Subsequent requests with that token receive 404. A page that reloads opens a new endpoint and supplies it on the next applicable ACP session setup.
 
 ## 13. Heartbeat and close codes
 

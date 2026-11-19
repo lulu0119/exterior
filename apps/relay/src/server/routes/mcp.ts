@@ -1,9 +1,8 @@
-import { clientScope, mcpEndpointsPath, mcpFrameBytes, mcpSocketCloseCodes } from "@exterioragentprotocol/sdk";
-import { heartbeat } from "@exterioragentprotocol/sdk/relay";
+import { clientScope, mcpEndpointsPath, mcpFrameBytes, mcpProtocolVersion, mcpSocketCloseCodes } from "@exterioragentprotocol/sdk";
+import { heartbeat, type McpEndpoints, type McpSocketLink } from "@exterioragentprotocol/sdk/relay";
 import type { createNodeWebSocket } from "@hono/node-ws";
 import type { Hono } from "hono";
 import { accessAccount, type RelayEnv, type ReadAccess } from "../http.js";
-import type { McpEndpoints, McpSocketLink } from "../mcp/endpoints.js";
 import type { IsGranted } from "./connections.js";
 import { defaultHeartbeatMs } from "./sockets.js";
 
@@ -24,11 +23,13 @@ export function mountMcp(app: Hono<RelayEnv>, input: {
   const heartbeatMs = input.heartbeatMs ?? defaultHeartbeatMs;
   app.post(mcpEndpointsPath, accessAccount(input, clientScope), async (c) => {
     if (!(await input.isGranted(c.get("userId"), c.get("clientId")))) return c.json({ code: "target_not_found", message: "This app is no longer allowed to serve tools." }, 404);
+    const registration = await c.req.json<{ protocolVersion?: string }>().catch(() => null);
+    if (registration?.protocolVersion !== mcpProtocolVersion) return c.json({ code: "invalid_request", message: `MCP endpoints require ${mcpProtocolVersion}.` }, 400);
     const { ticket, token } = input.endpoints.open({ userId: c.get("userId"), clientId: c.get("clientId") });
     const socket = new URL(mcpSocketPath, input.publicUrl);
     socket.protocol = socket.protocol === "https:" ? "wss:" : "ws:";
     socket.searchParams.set("ticket", ticket);
-    return c.json({ url: socket.href, mcpUrl: new URL(mcpPath, input.publicUrl).href, token }, 201);
+    return c.json({ protocolVersion: mcpProtocolVersion, url: socket.href, mcpUrl: new URL(mcpPath, input.publicUrl).href, token }, 201);
   });
 
   app.get(

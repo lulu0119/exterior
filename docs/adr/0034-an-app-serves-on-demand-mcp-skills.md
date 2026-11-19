@@ -1,6 +1,6 @@
 # An app serves on-demand MCP Skills
 
-Status: accepted.
+Status: updated by [ADR 0035](0035-an-app-serves-one-modern-mcp-endpoint.md). The original decision follows.
 
 An app can publish a skill directory with the Client SDK's independent `/skill` entry point. Each MCP session gets a server attached to the app's catalog. The Relay carries the ordinary MCP messages and the user’s harness controls discovery, loading, approval and origin tracking. An app can publish skills alongside Code Mode or on their own.
 

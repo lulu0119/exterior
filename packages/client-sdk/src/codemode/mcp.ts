@@ -1,8 +1,6 @@
 import { renderToolSample } from "@earendil-works/pi-codemode/declarations";
 import type { CodemodeResult, CodemodeTool } from "@earendil-works/pi-codemode/portable";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { createCatalogGlobals, withSavedScripts, type CodeModeProgram } from "./script-runtime.js";
 import type { ScriptLibrary } from "./scripts.js";
@@ -10,8 +8,6 @@ import type { ScriptLibrary } from "./scripts.js";
 export type CodeModeRequest = { code: string; signal: AbortSignal; timeoutMs: number; program?: CodeModeProgram };
 
 export type CodeModeMcpOptions = {
-  name: string;
-  version: string;
   description?: string;
   tools: readonly Omit<CodemodeTool, "execute">[];
   run(request: CodeModeRequest): Promise<CodemodeResult>;
@@ -78,13 +74,10 @@ function toolResult(result: CodemodeResult): CallToolResult {
   return { content, isError: !result.ok };
 }
 
-/** Serve the app's Pi sandbox through one MCP tool. The app owns each execution's sandbox and state. */
-export async function connectCodeMode(transport: Transport, options: CodeModeMcpOptions): Promise<void> {
-  const server = new McpServer({ name: options.name, version: options.version });
+export function registerCodeMode(server: McpServer, options: CodeModeMcpOptions): void {
   const catalogGlobals = options.scripts ? createCatalogGlobals(options.scripts, options.tools) : undefined;
-  server.registerTool("execute", { description: describe(options), inputSchema }, async ({ code, timeoutMs }, { signal }) => {
+  server.registerTool("execute", { description: describe(options), inputSchema }, async ({ code, timeoutMs }, { mcpReq: { signal } }) => {
     const program = catalogGlobals ? { code: withSavedScripts(code), globals: catalogGlobals } : undefined;
     return toolResult(await options.run({ code, signal, timeoutMs, ...(program && { program }) }));
   });
-  await server.connect(transport);
 }

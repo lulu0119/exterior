@@ -22,7 +22,7 @@ Code still missing.
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
 - [App setup](app-setup.md) against the hosted relay: a coding assistant registers a new local third-party app after GitHub sign-in, and the app signs in and initializes a real agent. Local tests use a seeded account; the hosted relay must first deploy [ADR 0029](adr/0029-an-assistant-sets-up-a-web-app.md).
-- MCP endpoints with a real agent: a page serves a tool with `serveMcp` through the hosted relay, OpenCode calls it from a prompt, cancels a call, and sees a call fail when the page closes. Tests use the MCP SDK's own client as the agent; OpenCode 2.0.26 given the endpoint in ACP `session/new` has initialized and listed the page's tools through a local relay.
+- Verify the hosted MCP endpoint with an ACP harness that negotiates MCP 2026-07-28. Current loopback coverage includes official SDK clients and Apify mcpc. The earlier OpenCode probe used the previous protocol.
 - App Code Mode with a real agent through the hosted relay: use [AUV Playground](https://github.com/moeru-ai/auv/pull/414) to find an operation, compose window resolution and text search, cancel a running script, and verify that later scripts use the selected device after switching.
 - Saved Code Mode scripts with a consuming app and real harness through the relay: save useful source, reopen the app, discover and describe it, and run it with new inputs against the current app context. Client SDK tests cover in-sandbox discovery and composition through one MCP `execute` call.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.

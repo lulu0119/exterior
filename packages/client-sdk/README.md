@@ -1,15 +1,16 @@
 # Exterior Client SDK
 
-For Code Mode, install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main), the [protocol SDK](../sdk/README.md), and `@modelcontextprotocol/sdk` v1. The protocol SDK provides sign-in and `serveMcp`. The Client SDK serves a single MCP `execute` tool backed by [Pi Code Mode](https://github.com/earendil-works/pi/tree/main/packages/codemode).
+Use the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main) with the matching [protocol SDK](../sdk/README.md) and Relay. The app defines one MCP endpoint for a harness that speaks MCP 2026-07-28. Code Mode and Skills can be enabled independently on that endpoint. Both SDKs include their MCP runtime dependencies.
 
 An app supplies the Pi tools it wants scripts to call. Each tool includes a name, a description, optional JSON schemas for the generated declarations, and an `execute` callback. Validate arguments and enforce permissions in the callback. SDK objects and credentials stay in the app. Use plain JSON or resource references for results.
 
 ```ts
 import {
-  connectCodeMode,
+  registerCodeMode,
   createBrowserCodeModeSandbox,
   type CodemodeTool,
 } from "@exterioragentprotocol/client-sdk/codemode";
+import { createMcpApp } from "@exterioragentprotocol/client-sdk/mcp";
 import CodeModeWorker from "@exterioragentprotocol/client-sdk/codemode/worker?worker";
 import { serveMcp } from "@exterioragentprotocol/sdk/client";
 
@@ -29,14 +30,12 @@ const sandbox = createBrowserCodeModeSandbox({
   createWorker: () => new CodeModeWorker(),
   tools: reportTools,
 });
-const endpoint = await serveMcp(relayUrl, accessToken, (transport) => {
-  void connectCodeMode(transport, {
-    name: "reports",
-    version: "1.0.0",
-    tools: reportTools,
-    run: sandbox.run,
-  });
+const app = await createMcpApp({
+  name: "reports",
+  version: "1.0.0",
+  configure: server => registerCodeMode(server, { tools: reportTools, run: sandbox.run }),
 });
+const endpoint = await serveMcp(relayUrl, accessToken, app);
 void endpoint.closed.then(() => sandbox.close());
 ```
 
@@ -75,7 +74,7 @@ return scores.filter(score => score >= input.minimum);`,
 });
 ```
 
-Pass `scripts` to `connectCodeMode` alongside `tools` and `run`. The browser sandbox's `run` callback reads the full request, including any assembled source and catalog globals. Apps that wrap the callback for recording or to set their current context can retain the original `request.code` and forward the full request to `sandbox.run(request)`.
+Pass `scripts` to `registerCodeMode` alongside `tools` and `run`. The browser sandbox's `run` callback reads the full request, including any assembled source and catalog globals. Apps that wrap the callback for recording or to set their current context can retain the original `request.code` and forward the full request to `sandbox.run(request)`.
 
 The harness calls the MCP `execute` tool with JavaScript. Inside that JavaScript it can use:
 
@@ -113,21 +112,19 @@ See [ADR 0033](../../docs/adr/0033-an-app-keeps-its-code-mode-scripts.md) for th
 
 ## On-demand MCP Skills
 
-Install `@modelcontextprotocol/server@^2.4.0` alongside the Client SDK to use `@exterioragentprotocol/client-sdk/skill`. Provide the files of each skill under its own directory. The app builds a catalog once and serves it to each MCP session.
+Add the app's skill files to the same server factory. The catalog is built once. Each request gets its own MCP server connected to that catalog. Omit `configure` for a skills-only app, or omit `skills` for a tools-only app.
 
 ```ts
-import { createSkillProvider } from "@exterioragentprotocol/client-sdk/skill";
-import { serveMcp } from "@exterioragentprotocol/sdk/client";
-
-const connect = await createSkillProvider({
-  name: "reports-skills",
-  version: "1",
-  files: {
-    "reports/SKILL.md": "---\nname: reports\ndescription: Inspect reports.\n---\nRead references/scores.md for score units.",
-    "reports/references/scores.md": "Scores are percentages from 0 to 100.",
+const app = await createMcpApp({
+  name: "reports",
+  version: "1.0.0",
+  skills: {
+    "reports/SKILL.md": instructions,
+    "reports/references/scores.md": scoreGuide,
   },
+  configure: server => registerCodeMode(server, { tools: reportTools, run: sandbox.run }),
 });
-const endpoint = await serveMcp(relayUrl, accessToken, connect);
+const endpoint = await serveMcp(relayUrl, accessToken, app);
 ```
 
-Pass the endpoint URL and headers as an HTTP server in ACP session setup. A host supporting the [MCP Skills extension](https://modelcontextprotocol.io/extensions/skills/overview) lists metadata and reads the selected `SKILL.md` and individual references as needed. Skill discovery and resource reads require no MCP tools. The official `SkillsClient` in `@modelcontextprotocol/client/ext/skills` verifies each file against the published digest. The official 2.4.0 client reads both instructions and references through the current relay using default negotiation. Apify mcpc 0.8.0 sees the advertised extension, then declines skill commands on the relay's negotiated MCP version (2025-11-25). Its CLI requires 2026-07-28 for those commands. See the [client compatibility probes](../../docs/research/2026-11-19-client-sdk-native-skills.md).
+The harness calls `server/discover`, lists skill metadata with `skills/list`, and reads a selected file with `resources/read`. The official Skills client verifies the file's digest. The same server can register ordinary prompts and resources in `configure`. Use the served endpoint's `notify` methods for catalog changes. Each capability requires a consuming client. [MCP Skills](https://modelcontextprotocol.io/extensions/skills/overview) · [Client compatibility probes](../../docs/research/2026-11-19-client-sdk-native-skills.md)

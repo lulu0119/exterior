@@ -42,6 +42,7 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
     "oauth4webapi": "^3.8.8",
     "valibot": "^1.5.0",
     "ws": "^8.18.3"

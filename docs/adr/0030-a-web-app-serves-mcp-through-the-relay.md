@@ -1,6 +1,6 @@
 # A web app serves MCP tools through the relay
 
-Status: accepted
+Status: updated by [ADR 0035](0035-an-app-serves-one-modern-mcp-endpoint.md). The original decision follows.
 
 A web app such as Playground runs its tools in the page: a `codemode` tool, a desktop, a store. The agent runs on the person's device, which cannot reach the page. Without help, every such app deploys its own backend to take MCP requests and forward them to its page.
 

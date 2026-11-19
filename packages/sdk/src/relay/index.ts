@@ -13,3 +13,4 @@ export {
 } from "./registry.js";
 export { heartbeat } from "../heartbeat.js";
 export type { AgentSlot, Device, DeviceMessage, DevicePlatform, RelayMessage } from "../index.js";
+export { createMcpEndpoints, type McpEndpoints, type McpSocketLink } from "./mcp.js";
