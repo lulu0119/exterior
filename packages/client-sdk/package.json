@@ -32,7 +32,9 @@
   "dependencies": {
     "@earendil-works/pi-codemode": "1.5.2",
     "birpc": "^4.2.0",
+    "fuse.js": "^7.5.0",
     "quickjs-wasi": "3.6.2",
+    "unstorage": "^1.17.6",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

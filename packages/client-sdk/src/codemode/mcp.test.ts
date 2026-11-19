@@ -72,7 +72,7 @@ it("preserves image blocks and partial output and reports script and app failure
             value: undefined,
             output: [
               { type: "text", text: "Checking report." },
-              { type: "text", text: "界".repeat(400_000) },
+              { type: "text", text: "€".repeat(400_000) },
               { ...image, data: "a".repeat(4 * 1024 * 1024) },
               image,
             ],

@@ -4,8 +4,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { createCatalogGlobals, withSavedScripts, type CodeModeProgram } from "./script-runtime.js";
+import type { ScriptLibrary } from "./scripts.js";
 
-export type CodeModeRequest = { code: string; signal: AbortSignal; timeoutMs: number };
+export type CodeModeRequest = { code: string; signal: AbortSignal; timeoutMs: number; program?: CodeModeProgram };
 
 export type CodeModeMcpOptions = {
   name: string;
@@ -13,6 +15,7 @@ export type CodeModeMcpOptions = {
   description?: string;
   tools: readonly Omit<CodemodeTool, "execute">[];
   run(request: CodeModeRequest): Promise<CodemodeResult>;
+  scripts?: ScriptLibrary;
 };
 
 const inputSchema = z.strictObject({
@@ -24,14 +27,20 @@ const maxTextBytes = 1024 * 1024;
 const maxContentBytes = 4 * 1024 * 1024;
 const encoder = new TextEncoder();
 
-function describe({ description, tools }: CodeModeMcpOptions): string {
+function describe({ description, tools, scripts }: CodeModeMcpOptions): string {
   const introduction = description ? [description] : [];
   const instructions = [
-    "Execute a JavaScript script with top-level await and return.",
-    "Call app tools with await tools.<name>(args). Each execution starts with fresh variables.",
-    "Use text(value) or return to report results, and image(value) to report an image.",
-    "Discover tools with ALL_TOOLS. For example, text(ALL_TOOLS.slice(0, 5)).",
+    "Run JavaScript with top-level await and return.",
+    "Call app tools as await tools.<name>(args). Each execution starts with fresh variables.",
+    "Output with text(value) or return. Use image(value) for images.",
+    "ALL_TOOLS lists the available tools with their names and descriptions.",
   ];
+  if (scripts) {
+    instructions.push(
+      "Use await codemode.search(query) to find app tools and saved scripts. Pass a match's path to await codemode.describe(path) for types or saved source.",
+      "Use await codemode.run(name, input) to execute a saved script and use its return value in this script. Saved source receives input.",
+    );
+  }
   const declarations = tools.map((tool) => renderToolSample(tool));
   return [...introduction, instructions.join("\n"), ...declarations].join("\n\n");
 }
@@ -72,8 +81,10 @@ function toolResult(result: CodemodeResult): CallToolResult {
 /** Serve the app's Pi sandbox through one MCP tool. The app owns each execution's sandbox and state. */
 export async function connectCodeMode(transport: Transport, options: CodeModeMcpOptions): Promise<void> {
   const server = new McpServer({ name: options.name, version: options.version });
+  const catalogGlobals = options.scripts ? createCatalogGlobals(options.scripts, options.tools) : undefined;
   server.registerTool("execute", { description: describe(options), inputSchema }, async ({ code, timeoutMs }, { signal }) => {
-    return toolResult(await options.run({ code, signal, timeoutMs }));
+    const program = catalogGlobals ? { code: withSavedScripts(code), globals: catalogGlobals } : undefined;
+    return toolResult(await options.run({ code, signal, timeoutMs, ...(program && { program }) }));
   });
   await server.connect(transport);
 }
