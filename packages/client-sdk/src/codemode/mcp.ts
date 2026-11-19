@@ -2,10 +2,16 @@ import { renderToolSample } from "@earendil-works/pi-codemode/declarations";
 import type { CodemodeResult, CodemodeTool } from "@earendil-works/pi-codemode/portable";
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { createCatalogGlobals, withSavedScripts, type CodeModeProgram } from "./script-runtime.js";
+import { createCatalogGlobals, withSavedScripts } from "./script-runtime.js";
 import type { ScriptLibrary } from "./scripts.js";
 
-export type CodeModeRequest = { code: string; signal: AbortSignal; timeoutMs: number; program?: CodeModeProgram };
+export type CodeModeRequest = {
+  code: string;
+  signal: AbortSignal;
+  timeoutMs: number;
+  globals?: CodemodeTool[];
+  source?: string;
+};
 
 export type CodeModeMcpOptions = {
   description?: string;
@@ -77,7 +83,9 @@ function toolResult(result: CodemodeResult): CallToolResult {
 export function registerCodeMode(server: McpServer, options: CodeModeMcpOptions): void {
   const catalogGlobals = options.scripts ? createCatalogGlobals(options.scripts, options.tools) : undefined;
   server.registerTool("execute", { description: describe(options), inputSchema }, async ({ code, timeoutMs }, { mcpReq: { signal } }) => {
-    const program = catalogGlobals ? { code: withSavedScripts(code), globals: catalogGlobals } : undefined;
-    return toolResult(await options.run({ code, signal, timeoutMs, ...(program && { program }) }));
+    const request = catalogGlobals
+      ? { code: withSavedScripts(code), globals: catalogGlobals, source: code, signal, timeoutMs }
+      : { code, signal, timeoutMs };
+    return toolResult(await options.run(request));
   });
 }

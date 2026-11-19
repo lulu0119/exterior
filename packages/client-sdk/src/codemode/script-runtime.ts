@@ -3,8 +3,6 @@ import type { CodemodeTool } from "@earendil-works/pi-codemode/portable";
 import { z } from "zod";
 import { findCatalogEntries, type ScriptLibrary } from "./scripts.js";
 
-export type CodeModeProgram = { code: string; globals: CodemodeTool[] };
-
 const discoveryArgument = z.string();
 
 export function createCatalogGlobals(scripts: ScriptLibrary, tools: readonly Omit<CodemodeTool, "execute">[]): CodemodeTool[] {
