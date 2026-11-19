@@ -49,7 +49,7 @@ The directory on a device an agent session works in. A web app runs on another c
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
 **MCP endpoint**:
-An MCP server a web app serves from its page through the relay, for tools that run in the page. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
+An MCP server a web app serves from its page through the relay, for the tools, skills and resources an app chooses to offer. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
 _Avoid_: MCP gateway, bridge, tunnel, tool server
 
 **Client SDK**:

@@ -77,23 +77,23 @@ A connection lasts as long as its socket. When the socket closes, `closeReason(a
 
 ## Serving tools to an agent
 
-A page can give an agent MCP tools that run in the page. `serveMcp(relayUrl, accessToken, connect, signal?)` opens an MCP endpoint on the relay and returns `{ url, headers, closed, close }`. Pass `url` and `headers` to the agent as an HTTP MCP server:
+A page can give an agent MCP tools that run in the page. `serveMcp(relayUrl, accessToken, createServer, signal?)` opens an MCP endpoint on the relay and returns `{ url, headers, notify, closed, close }`. Pass `url` and `headers` to the agent as an HTTP MCP server:
 
 ```ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 
-const tools = await serveMcp(relayUrl, await session.accessToken(), (transport) => {
+const tools = await serveMcp(relayUrl, await session.accessToken(), () => {
   const server = new McpServer({ name: "playground", version: "1.0.0" });
   server.registerTool("report_title", {}, async () => ({
     content: [{ type: "text", text: reportTitle() }],
   }));
-  void server.connect(transport);
+  return server;
 });
 // In ACP session/new, session/load and session/resume:
 mcpServers: [{ type: "http", name: "playground", url: tools.url, headers: tools.headers }]
 ```
 
-Check that the agent's `initialize` response has `agentCapabilities.mcpCapabilities.http` first; an agent without it cannot reach the endpoint. `connect` runs once for each MCP session the agent starts, with that session's transport; connect a new server to each. An agent that cancels a call aborts the handler's `signal`.
+The ACP harness must advertise HTTP MCP transport and its MCP client must speak revision `2026-07-28`. With the official TypeScript client, set `versionNegotiation: { mode: "auto" }`. Each MCP HTTP request gets a fresh server from the factory. An agent that aborts the HTTP request aborts the handler's `ctx.mcpReq.signal`. The endpoint's `notify` publishes catalog and resource updates to subscribed clients.
 
 The endpoint lasts as long as its socket. Closing the page or calling `close()` ends it: calls still running fail, and the address answers 404. `closed` resolves with `revoked` when the person revokes the app, and otherwise with undefined. Open one endpoint per connection, and pass it again under the same `name` when that connection resumes a session. An agent may share the servers it is given between its sessions (OpenCode does, per working directory), so do not rely on an endpoint being one ACP session's alone.
 
@@ -124,4 +124,4 @@ For an execution tool with app operation discovery, use the [Exterior Client SDK
 
 `seen` is told when a device says hello and when its socket closes, so the relay can list it while offline. `heartbeat(socket, everyMs)` pings a `ws` socket and ends it when a ping goes unanswered. HTTP routing and authentication stay with the relay's own framework.
 
-The relay side of MCP endpoints is not in `relay`: it speaks MCP's Streamable HTTP, so Exterior's relay keeps it beside its routes. The root exports the wire: `mcpEndpointsPath`, `mcpSocketCloseCodes`, `mcpFrameBytes`, and `parseMcpFrame`.
+The `relay` entry exports `createMcpEndpoints` for HTTP routing, ticketed page sockets, concurrent exchanges and cancellation. The app-side MCP SDK handles discovery, headers, content and subscriptions. See the [endpoint wire contract](../../docs/protocol/exterior-agent-protocol.md#12-mcp-endpoints).

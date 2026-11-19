@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AccountPage } from "../shared/account-web.js";
 import { createAgentCatalog, type AgentCatalog } from "./agents/catalog.js";
-import type { Registry } from "@exterioragentprotocol/sdk/relay";
+import { createMcpEndpoints, type Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "./devices/store.js";
 import { publicRequest, type RelayEnv, type ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
@@ -24,7 +24,6 @@ import { mountConnections, type IsGranted } from "./routes/connections.js";
 import { mountDashboard } from "./routes/dashboard.js";
 import { mountMcp } from "./routes/mcp.js";
 import { mountSockets, type DeviceSignedIn } from "./routes/sockets.js";
-import { createMcpEndpoints } from "./mcp/endpoints.js";
 
 const log = useLogg("relay").useGlobalConfig();
 
@@ -92,6 +91,10 @@ export function createRelayApp(input: {
   });
 
   // Cross-origin calls use explicit credentials; account cookies are used only on the relay's own origin.
+  app.use("/eap/v1/mcp", cors({
+    origin: "*",
+    allowMethods: ["POST", "OPTIONS"],
+  }));
   for (const path of ["/api/*", "/eap/*", "/.well-known/*"]) {
     app.use(path, cors({
       origin: "*",

@@ -2,7 +2,8 @@
 
 Every `adr/NNNN-slug.md` is listed here, newest first. Superseded entries stay for history. A new ADR adds its line in the same change.
 
-- [0034 An app serves on-demand MCP Skills](adr/0034-an-app-serves-on-demand-mcp-skills.md) — accepted. The independent Client SDK skill module publishes app-owned files through the MCP Skills extension.
+- [0035 An app serves one modern MCP endpoint](adr/0035-an-app-serves-one-modern-mcp-endpoint.md) — accepted. Protocol negotiation and per-request serving use MCP 2026-07-28.
+- [0034 An app serves on-demand MCP Skills](adr/0034-an-app-serves-on-demand-mcp-skills.md) — accepted. An app publishes files through MCP Skills. ADR 0035 combines capabilities on one endpoint.
 - [0033 An app keeps its Code Mode scripts](adr/0033-an-app-keeps-its-code-mode-scripts.md) — accepted. The Code Mode extension can persist an app's scripts and compose them inside the one MCP `execute` tool.
 - [0032 An app serves Code Mode with Pi](adr/0032-an-app-serves-code-mode-with-pi.md) — accepted, extended by 0033. The Client SDK runs JavaScript with Pi and serves one MCP execution tool with declarations for the app's operations.
 - [0031 A command is an argument array, never a line the CLI splits](adr/0031-a-command-is-an-argument-array.md) — accepted. `exterior agent add --name N -- COMMAND [ARG...]` stores each argument as the shell delivered it; the desktop window splits a pasted line and sends an array. Amends 0009.
