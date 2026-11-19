@@ -16,7 +16,7 @@ it("lets independent MCP clients discover metadata and read verified files on de
   for (let session = 0; session < 2; session++) {
     const [agent, app] = InMemoryTransport.createLinkedPair();
     const send = vi.spyOn(agent, "send");
-    const client = new Client({ name: "skill-reader", version: "1" }, { versionNegotiation: { mode: "legacy" } });
+    const client = new Client({ name: "skill-reader", version: "1" });
     try {
       await connect(app);
       await client.connect(agent);
