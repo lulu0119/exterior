@@ -1,6 +1,6 @@
 # Exterior Client SDK
 
-Install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main), the [protocol SDK](../sdk/README.md), and `@modelcontextprotocol/sdk` v1. The protocol SDK provides sign-in and `serveMcp`. The Client SDK serves a single MCP `execute` tool backed by [Pi Code Mode](https://github.com/earendil-works/pi/tree/main/packages/codemode).
+For Code Mode, install the [Client SDK preview](https://pkg.pr.new/lulu0119/exterior/@exterioragentprotocol/client-sdk@main), the [protocol SDK](../sdk/README.md), and `@modelcontextprotocol/sdk` v1. The protocol SDK provides sign-in and `serveMcp`. The Client SDK serves a single MCP `execute` tool backed by [Pi Code Mode](https://github.com/earendil-works/pi/tree/main/packages/codemode).
 
 An app supplies the Pi tools it wants scripts to call. Each tool includes a name, a description, optional JSON schemas for the generated declarations, and an `execute` callback. Validate arguments and enforce permissions in the callback. SDK objects and credentials stay in the app. Use plain JSON or resource references for results.
 
@@ -110,3 +110,24 @@ Names contain at most 64 letters, numbers, underscores, or hyphens; Unicode lett
 The library uses a `scripts` namespace inside the supplied storage and leaves its lifetime with the app. Names are case-sensitive; internal keys use a SHA-256 digest of the name so case-insensitive filesystems keep distinct names separate. Give each app an independent IndexedDB database, filesystem base, or appropriately scoped storage instance. Node apps can use `unstorage/drivers/fs-lite`; SQL and remote apps can select other unstorage drivers. The extension never imports a particular driver and does not expose whole-store clearing or mount controls. Backend transaction and consistency guarantees remain those of the chosen driver.
 
 See [ADR 0033](../../docs/adr/0033-an-app-keeps-its-code-mode-scripts.md) for the catalog and execution design. Client SDK tests cover persistent records, app scope, MCP discovery, composition in Pi, and cancellation.
+
+## On-demand MCP Skills
+
+Install `@modelcontextprotocol/server@^2.4.0` alongside the Client SDK to use `@exterioragentprotocol/client-sdk/skill`. Provide the files of each skill under its own directory. The app builds a catalog once and serves it to each MCP session.
+
+```ts
+import { createSkillProvider } from "@exterioragentprotocol/client-sdk/skill";
+import { serveMcp } from "@exterioragentprotocol/sdk/client";
+
+const connect = await createSkillProvider({
+  name: "reports-skills",
+  version: "1",
+  files: {
+    "reports/SKILL.md": "---\nname: reports\ndescription: Inspect reports.\n---\nRead references/scores.md for score units.",
+    "reports/references/scores.md": "Scores are percentages from 0 to 100.",
+  },
+});
+const endpoint = await serveMcp(relayUrl, accessToken, connect);
+```
+
+Pass the endpoint URL and headers as an HTTP server in ACP session setup. A host supporting the [MCP Skills extension](https://modelcontextprotocol.io/extensions/skills/overview) lists metadata and reads the selected `SKILL.md` and individual references as needed. Skill discovery and resource reads require no MCP tools. The official `SkillsClient` in `@modelcontextprotocol/client/ext/skills` verifies each file against the published digest. The current Exterior relay uses MCP initialization with sessions. Configure a v2 test client's `versionNegotiation.mode` as `"legacy"` for this transport.

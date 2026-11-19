@@ -31,10 +31,10 @@ function describe({ description, tools, scripts }: CodeModeMcpOptions): string {
   const introduction = description ? [description] : [];
   const instructions = [
     "Run JavaScript with top-level await and return.",
-    "Call app tools as await tools.<name>(args). Each execution starts with fresh variables.",
+    "Each execution starts with fresh variables.",
     "Output with text(value) or return. Use image(value) for images.",
-    "ALL_TOOLS lists the available tools with their names and descriptions.",
   ];
+  if (tools.length) instructions.push("Call app tools as await tools.<name>(args). ALL_TOOLS lists their names and descriptions.");
   if (scripts) {
     instructions.push(
       "Use await codemode.search(query) to find app tools and saved scripts. Pass a match's path to await codemode.describe(path) for types or saved source.",
