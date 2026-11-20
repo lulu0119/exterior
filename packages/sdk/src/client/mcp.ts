@@ -1,7 +1,24 @@
-import type { McpServerFactory, ServerNotifier } from "@modelcontextprotocol/server";
+import type { McpRequestContext, McpServer, McpServerFactory, ServerNotifier } from "@modelcontextprotocol/server";
 import { closeReason, mcpEndpointsPath, mcpProtocolVersion, mcpSocketCloseCodes, parseJson, parseMcpFrame, type McpFrame, type McpSocketCloseReason } from "../index.js";
 import { isRecord, originOf } from "../oauth.js";
 import { relayError, RelayError } from "./oauth.js";
+
+export async function createMcpApp({ name, version, skills, configure }: {
+  name: string;
+  version: string;
+  skills?: Record<string, string | Uint8Array>;
+  configure?: (server: McpServer, context: McpRequestContext) => void | Promise<void>;
+}): Promise<McpServerFactory> {
+  const { McpServer } = await import("@modelcontextprotocol/server");
+  const catalog = skills && await import("@modelcontextprotocol/server/ext/skills").then(({ SkillsExtension, memorySkillFiles }) =>
+    SkillsExtension.load(memorySkillFiles(skills), { strict: true }));
+  return async (context) => {
+    const server = new McpServer({ name, version });
+    catalog?.attach(server);
+    await configure?.(server, context);
+    return server;
+  };
+}
 
 /**
  * An MCP endpoint the page serves. Give an agent `url` and `headers` as an HTTP MCP server, such as an ACP

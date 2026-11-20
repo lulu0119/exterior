@@ -14,7 +14,7 @@ Code still missing.
 - Grants per device: the consent page grants every device of the account. Let the person choose devices, and close the attach sockets a narrowed grant no longer covers ([spec §4.4](protocol/exterior-agent-protocol.md#44-grants)).
 - The device approval page shows the code and the account. Show the requesting device's name and address too, so a forwarded code is easier to spot.
 - A machine-readable EAP schema and a conformance suite a third-party relay or device can run.
-- npm release of `exterior-project`, `@exterioragentprotocol/sdk`, and `@exterioragentprotocol/client-sdk`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
+- npm release of `exterior-project` and `@exterioragentprotocol/sdk`: when the product is ready. Until then, install from the preview published by `.github/workflows/preview.yml`. A checkout still runs `node packages/gateway/dist/bin/exterior.mjs`.
 - Finish the Exterior rename outside code: update the Coolify application name and the GitHub OAuth app name. The GitHub repo is already [lulu0119/exterior](https://github.com/lulu0119/exterior).
 
 ## Awaiting verification
@@ -24,7 +24,7 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - [App setup](app-setup.md) against the hosted relay: a coding assistant registers a new local third-party app after GitHub sign-in, and the app signs in and initializes a real agent. Local tests use a seeded account; the hosted relay must first deploy [ADR 0029](adr/0029-an-assistant-sets-up-a-web-app.md).
 - Verify the hosted MCP endpoint with an ACP harness that negotiates MCP 2026-07-28. Current loopback coverage includes official SDK clients and Apify mcpc. The earlier OpenCode probe used the previous protocol.
 - App Code Mode with a real agent through the hosted relay: use [AUV Playground](https://github.com/moeru-ai/auv/pull/414) to find an operation, compose window resolution and text search, cancel a running script, and verify that later scripts use the selected device after switching.
-- Saved Code Mode scripts with a consuming app and real harness through the relay: save useful source, reopen the app, discover and describe it, and run it with new inputs against the current app context. Client SDK tests cover in-sandbox discovery and composition through one MCP `execute` call.
+- Saved Code Mode scripts with a consuming app and real harness through the relay: save useful source, reopen the app, discover and describe it, and run it with new inputs against the current app context. SDK tests cover in-sandbox discovery and composition through one MCP `execute` call.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.

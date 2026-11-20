@@ -19,7 +19,7 @@ interface HostApi {
 }
 
 export interface BrowserCodeModeOptions extends CodemodeSandboxBaseOptions {
-  /** Construct a fresh module worker from the Client SDK worker entry. */
+  /** Construct a fresh module worker from the Code Mode worker entry. */
   createWorker(): Worker;
 }
 

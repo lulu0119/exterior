@@ -1,7 +1,7 @@
 import { SkillsClient } from "@modelcontextprotocol/client/ext/skills";
 import { expect, it } from "vitest";
 import { createMcpApp } from "./index.js";
-import { connectTestClient } from "../test-support/client.js";
+import { connectTestClient } from "./test-support/client.js";
 
 it("lets independent MCP clients discover metadata and read verified files on demand", async () => {
   const instructions = "Read references/windows.md before choosing a window.";
