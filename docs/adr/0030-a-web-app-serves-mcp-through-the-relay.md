@@ -8,7 +8,7 @@ The relay does that once for every app. A client opens an MCP endpoint with `POS
 
 This is the stable ACP path: `mcpServers` with `http`, which OpenCode supports, checked against `mcpCapabilities.http`. ACP's draft MCP-over-ACP RFD carries client tools over the ACP connection itself and would need no relay change, but it targets MCP 2026-07-28 only and OpenCode does not support it. That RFD describes an HTTP adapter for agents without it, and the endpoint is that adapter, on the relay because the agent and the page are on different computers.
 
-[ADR 0032](0032-an-app-serves-code-mode-with-pi.md) describes the Client SDK's execution tool.
+[ADR 0032](0032-an-app-serves-code-mode-with-pi.md) describes the SDK's Code Mode execution tool.
 
 ## Considered Options
 

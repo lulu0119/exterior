@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { createMcpHandler, type McpServerFactory } from "@modelcontextprotocol/server";
-import { createMcpApp } from "../mcp/index.js";
+import { createMcpApp } from "../index.js";
 import { registerCodeMode, type CodeModeMcpOptions } from "../codemode/mcp.js";
 import { onTestFinished } from "vitest";
 

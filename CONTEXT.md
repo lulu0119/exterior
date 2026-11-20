@@ -52,10 +52,6 @@ _Avoid_: `/` as "no directory", workspace (Example's word for a directory the pe
 An MCP server a web app serves from its page through the relay, for the tools, skills and resources an app chooses to offer. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
 _Avoid_: MCP gateway, bridge, tunnel, tool server
 
-**Client SDK**:
-Exterior's optional library for apps that expose discoverable capabilities and script execution to agents.
-_Avoid_: protocol SDK, daemon SDK
-
 **MCP Skill**:
 An app-published `SKILL.md` and its supporting files. A supporting harness discovers the skill metadata and reads files from their MCP origin on demand.
 _Avoid_: saved script, installed local skill
