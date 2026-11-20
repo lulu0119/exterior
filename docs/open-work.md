@@ -22,7 +22,9 @@ Code still missing.
 Code exists and has not been verified yet. Delete the bullet once it passes.
 
 - [App setup](app-setup.md) against the hosted relay: a coding assistant registers a new local third-party app after GitHub sign-in, and the app signs in and initializes a real agent. Local tests use a seeded account; the hosted relay must first deploy [ADR 0029](adr/0029-an-assistant-sets-up-a-web-app.md).
-- MCP endpoints with a real agent: a page serves a tool with `serveMcp` through the hosted relay, OpenCode calls it from a prompt, cancels a call, and sees a call fail when the page closes. Tests use the MCP SDK's own client as the agent; OpenCode 2.0.26 given the endpoint in ACP `session/new` has initialized and listed the page's tools through a local relay.
+- Verify the hosted MCP endpoint with an ACP harness that negotiates MCP 2026-07-28. Current loopback coverage includes official SDK clients and Apify mcpc. The earlier OpenCode probe used the previous protocol.
+- App Code Mode with a real agent through the hosted relay: use [AUV Playground](https://github.com/moeru-ai/auv/pull/414) to find an operation, compose window resolution and text search, cancel a running script, and verify that later scripts use the selected device after switching.
+- Saved Code Mode scripts with a consuming app and real harness through the relay: save useful source, reopen the app, discover and describe it, and run it with new inputs against the current app context. SDK tests cover in-sandbox discovery and composition through one MCP `execute` call.
 - The first release: a tag drafts it with every file the setup guide links to, and the downloads install on macOS, Linux, and Windows on Arm. A pull request run built the files without the tag.
 - The desktop app on Linux: the tray, start at login, and the window as the app when GNOME shows no tray.
 - The systemd user unit in the README, on a Linux server.
@@ -35,3 +37,11 @@ Code exists and has not been verified yet. Delete the bullet once it passes.
 - A Windows device through the relay: open OpenCode and an `npx` agent from Example without choosing a directory, and check the session runs in the device's own directory. The launch, `session/new`, and stop were checked against the real agents without the relay.
 - The folder dialog on a real window: choose a directory in the desktop app's Settings and see it in `exterior config get working-directory`, and check a cancelled dialog changes nothing.
 - `exterior agent` and a broken entry in the configuration file: one entry the parser cannot read makes `remove` refuse the whole file, including removing a different, good entry, and nothing in the CLI can repair it.
+
+## Design candidates
+
+Meeting ideas to revisit when an app has a use for them.
+
+- Streaming results from a running cell and app-owned subscriptions that continue between cells. Each needs its own cancellation and lifetime semantics.
+- Additional script languages with bindings to the same typed application operations.
+- An API bridge for explicitly declared app capabilities, a complaint action so agents can report missing capabilities, and app-supplied prompts. Define each contract with a consuming app.

@@ -45,7 +45,7 @@ Save that public configuration where the app keeps its settings.
 
 Install the SDK using its documented package address and pass the configuration to `useAccount(config)`. After the callback is handled, the SDK opens the page where the person started sign-in. Use `session.listDevices()` and `session.openConnection(...)` to list devices and open an agent. Follow the SDK's [connection and resume guidance](../packages/sdk/README.md#devices-and-connections).
 
-Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent. App-specific dependencies such as a codemode proxy remain the app's responsibility.
+Run the app's checks and build. Start it at the configured origin and have the person sign in and approve device access. Devices must be signed in and online on the same relay; offer the manual's device setup only when needed. Verify device discovery, opening an installed agent, and ACP `initialize` with that agent.
 
 When using a metadata document, check from outside the deployment that its HTTPS address returns JSON and that both `client_id` and `redirect_uris` match the SDK configuration:
 
@@ -55,3 +55,9 @@ curl -fsS "$client_id" | jq -e --arg id "$client_id" --arg uri "$redirect_uri" \
 ```
 
 Setup is complete when the app signs in and initializes a real agent. Report the configuration and the checks you ran, including any live steps still pending. Publish or commit only when requested.
+
+## Expose app tools
+
+Use the protocol SDK's [`serveMcp`](../packages/sdk/README.md#serving-tools-to-an-agent) to serve tools through the relay. To offer Code Mode, import the SDK's [Code Mode entry point](../packages/sdk/README.md#code-mode) and declare the app operations a script can call. Give the agent the MCP endpoint during ACP session setup after checking its HTTP MCP capability.
+
+Bind the operations to the selected app context, such as a report or the current AUV device. With a real agent, verify that it can find an operation, compose two operations in one execution, and cancel a running script. Verify the next call uses the newly selected context after switching.

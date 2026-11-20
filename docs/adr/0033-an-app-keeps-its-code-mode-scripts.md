@@ -1,0 +1,9 @@
+# An app keeps its Code Mode scripts
+
+Status: accepted.
+
+The optional Code Mode catalog can persist an app's saved JavaScript. The app supplies its own unstorage instance and selects which source to save. That source is reusable across harnesses and ACP sessions. Pi's per-session JSON store has a separate lifetime.
+
+Following [Cloudflare Code Mode snippets](https://github.com/cloudflare/agents/blob/06a271526fd7d4a6dd1ee0ea238fe30402494880/docs/codemode/snippets.md), the harness sees one MCP tool, `execute`. Given a catalog, the script can search and describe both current app tools and saved scripts. `codemode.run` resolves saved source through the catalog and runs it inside the current Pi VM. Its result is a JavaScript value, so the caller can compose it with other scripts and app tools. Pi supplies the enclosing run's timeout, cancellation, output and JSON store.
+
+Apps use the `sdk/client/codemode` entry for the sandbox, execution tool and optional catalog. The run request carries the assembled `code` and catalog `globals`, with the original submission in `source` when the catalog wraps it. Saved input schemas are descriptive metadata. Zod checks record shape, Fuse.js searches metadata, and the app chooses an unstorage driver.
