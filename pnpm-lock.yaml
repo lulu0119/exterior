@@ -322,9 +322,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.4.0
         version: 2.4.0
-      birpc:
-        specifier: ^4.2.0
-        version: 4.2.0
+      '@moeru/eventa':
+        specifier: ^1.0.2
+        version: 1.0.3(@tauri-apps/api@2.12.4)
       fuse.js:
         specifier: ^7.5.0
         version: 7.5.0
@@ -1107,6 +1107,26 @@ packages:
   '@modelcontextprotocol/server@2.4.0':
     resolution: {integrity: sha512-rgR9yxSaAJ+bcsi/XroT/S2AfPiIWloXAnrdfYSCms9ivVju0ishu/wW0J21Ho6+ZOR1r7RyeRbjiRuF87ix5Q==}
     engines: {node: '>=20'}
+
+  '@moeru/eventa@1.0.3':
+    resolution: {integrity: sha512-BSHjs9F1gcBLBQHFkd7lAR7siICZmejpNcUII1z2YtNEtfrqrYHbX4D9iVcPQ+hRV/pWBoMDGZ91Apdh8u8ZKw==}
+    peerDependencies:
+      '@tauri-apps/api': '>=2.12.4'
+      electron: '>=39'
+      h3: '>=2.0.8'
+      hono: '>=4.13.18'
+      web-worker: ^1.5.0
+    peerDependenciesMeta:
+      '@tauri-apps/api':
+        optional: true
+      electron:
+        optional: true
+      h3:
+        optional: true
+      hono:
+        optional: true
+      web-worker:
+        optional: true
 
   '@moeru/std@0.1.0-beta.20':
     resolution: {integrity: sha512-09Nunc5dLT0+oAaLV18nIGHLkQO3LOUGOpGcQ2VIFTqWybJojT9geawhTVtuclYcJtIApgIt+3BLWI1K9dYpFw==}
@@ -2782,9 +2802,6 @@ packages:
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
-
-  birpc@4.2.0:
-    resolution: {integrity: sha512-KxgKcZPfrtzJDDALHPguGpGJUrzdgpymyiQQgzFjWreHMOpWrnFNVREr5J48x2DBh8ZVioscrV1SBkDipGiX+Q==}
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -5928,6 +5945,13 @@ snapshots:
       '@modelcontextprotocol/core': 2.4.0
       zod: 4.6.5
 
+  '@moeru/eventa@1.0.3(@tauri-apps/api@2.12.4)':
+    dependencies:
+      nanoid: 6.0.2
+      picomatch: 4.0.7
+    optionalDependencies:
+      '@tauri-apps/api': 2.12.4
+
   '@moeru/std@0.1.0-beta.20': {}
 
   '@napi-rs/image-android-arm64@1.15.0':
@@ -7452,8 +7476,6 @@ snapshots:
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
-
-  birpc@4.2.0: {}
 
   bl@4.1.0:
     dependencies:

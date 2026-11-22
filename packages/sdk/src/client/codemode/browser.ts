@@ -1,22 +1,15 @@
 import {
   RemoteCodemodeSandbox,
   type CodemodeExecuteOptions,
-  type CodemodeRemoteExchange,
-  type CodemodeRemoteRequest,
   type CodemodeSandboxBaseOptions,
   type CodemodeTool,
 } from "@earendil-works/pi-codemode/portable";
-import { createBirpc } from "birpc";
+import { defineInvoke, defineInvokeHandler } from "@moeru/eventa";
+import { createContext } from "@moeru/eventa/adapters/webworkers";
+
+import { exchangeEvent, executeEvent } from "./protocol.js";
 
 type BrowserExecution = CodemodeExecuteOptions & { globals?: CodemodeTool[] };
-
-interface WorkerApi {
-  execute(request: CodemodeRemoteRequest): Promise<void>;
-}
-
-interface HostApi {
-  exchange: CodemodeRemoteExchange;
-}
 
 export interface BrowserCodeModeOptions extends CodemodeSandboxBaseOptions {
   /** Construct a fresh module worker from the Code Mode worker entry. */
@@ -39,19 +32,14 @@ export function createBrowserCodeModeSandbox({ createWorker, ...options }: Brows
         async execute(request, exchange) {
           signal.throwIfAborted();
           const worker = createWorker();
-          const rpc = createBirpc<WorkerApi, HostApi>({ exchange }, {
-            post: (message) => worker.postMessage(message),
-            on: (receive) => worker.addEventListener("message", (event) => receive(event.data)),
-            timeout: -1,
-          });
-          const fail = () => rpc.$close(new Error("The Code Mode worker failed."));
-          worker.addEventListener("error", fail);
-          worker.addEventListener("messageerror", fail);
+          const { context } = createContext(worker);
+          const workerLifetime = new AbortController();
+          defineInvokeHandler(context, exchangeEvent, exchange);
           disposeWorker = () => {
             worker.terminate();
-            rpc.$close();
+            workerLifetime.abort();
           };
-          await rpc.execute(request);
+          await defineInvoke(context, executeEvent)(request, { signal: workerLifetime.signal });
         },
       }),
     });

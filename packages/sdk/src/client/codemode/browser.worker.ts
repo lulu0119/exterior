@@ -1,33 +1,19 @@
-import {
-  serveCodemodeRemote,
-  type CodemodeRemoteExchange,
-  type CodemodeRemoteRequest,
-} from "@earendil-works/pi-codemode/portable";
-import { createBirpc, type BirpcReturn } from "birpc";
+import { serveCodemodeRemote } from "@earendil-works/pi-codemode/portable";
+import { defineInvoke, defineInvokeHandler } from "@moeru/eventa";
+import { createContext } from "@moeru/eventa/adapters/webworkers/worker";
 
-interface WorkerApi {
-  execute(request: CodemodeRemoteRequest): Promise<void>;
-}
+import { exchangeEvent, executeEvent } from "./protocol.js";
 
-interface HostApi {
-  exchange: CodemodeRemoteExchange;
-}
+const { context } = createContext();
+const exchange = defineInvoke(context, exchangeEvent);
 
-const worker = globalThis as unknown as Pick<Worker, "postMessage" | "addEventListener">;
-let rpc: BirpcReturn<HostApi, WorkerApi>;
-rpc = createBirpc<HostApi, WorkerApi>({
-  execute(request) {
-    const wasm = fetch(new URL("./quickjs.wasm", import.meta.url)).then(async (response) => {
-      if (!response.ok) throw new Error(`QuickJS WASM request failed with HTTP ${response.status}.`);
-      return WebAssembly.compile(await response.arrayBuffer());
-    });
-    return serveCodemodeRemote(request, (messages) => rpc.exchange(messages), {
-      maxMemoryLimitBytes: 64 * 1024 * 1024,
-      wasm,
-    });
-  },
-}, {
-  post: (message) => worker.postMessage(message),
-  on: (receive) => worker.addEventListener("message", (event) => receive(event.data)),
-  timeout: -1,
+defineInvokeHandler(context, executeEvent, (request) => {
+  const wasm = fetch(new URL("./quickjs.wasm", import.meta.url)).then(async (response) => {
+    if (!response.ok) throw new Error(`QuickJS WASM request failed with HTTP ${response.status}.`);
+    return WebAssembly.compile(await response.arrayBuffer());
+  });
+  return serveCodemodeRemote(request, (messages) => exchange(messages), {
+    maxMemoryLimitBytes: 64 * 1024 * 1024,
+    wasm,
+  });
 });

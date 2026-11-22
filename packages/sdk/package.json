@@ -52,7 +52,7 @@
   "dependencies": {
     "@earendil-works/pi-codemode": "1.5.2",
     "@modelcontextprotocol/server": "2.4.0",
-    "birpc": "^4.2.0",
+    "@moeru/eventa": "^1.0.2",
     "fuse.js": "^7.5.0",
     "oauth4webapi": "^3.8.8",
     "quickjs-wasi": "3.6.2",
