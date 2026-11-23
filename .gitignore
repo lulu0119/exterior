@@ -5,3 +5,4 @@ dist/
 .env
 data/
 .captures/
+packages/sdk/src/client/codemode/host-prelude.generated.ts
