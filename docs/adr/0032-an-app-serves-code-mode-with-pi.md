@@ -8,6 +8,4 @@ The app defines Pi Code Mode tools with descriptions, data shapes and host callb
 
 Each call uses a fresh [Pi Code Mode sandbox](https://github.com/earendil-works/pi/tree/main/packages/codemode). The browser sandbox runs Pi's portable VM off the page thread in a disposable worker. Scripts compose operations using data and resource references. Apps can carry Pi's successful JSON store changes between calls in the same authorized context.
 
-An app can also supply a host object when its operations need callbacks or typed arrays. A per-execution Cap’n Web session carries these over Pi globals. Eventa carries the browser worker exchange. The SDK closes the RPC session and signals the host when execution ends. The app defines and authorizes the operations on its host object.
-
 The draft originally retained JavaScript heaps and callable SDK objects between calls. Explicit resource references let the SDK delegate execution and value exchange to Pi. An external agent continues to own its own conversation and reaches the app through MCP.

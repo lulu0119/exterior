@@ -171,33 +171,6 @@ The example uses Vite's `?worker` import. The browser sandbox keeps app tools in
 
 The agent receives Pi's generated declarations in the `execute` description. Inside JavaScript, use `tools.report_scores({})` and `ALL_TOOLS` to list the available operations. Use top-level `await` and `return`, `text(value)`, or `image(value)` for output. If the app needs explicit state across calls, it can pass a JSON store and apply the `storeWrites` from successful runs. Scope state and operations to the authorized app context. Closing the sandbox stops active scripts and aborts their pending tool calls. An app effect already dispatched remains in effect.
 
-### Host objects
-
-Pass a `host` factory to `createBrowserCodeModeSandbox` to expose a Cap’n Web `RpcTarget` for each execution. Script code can call `await host.read()` and pass callbacks to methods such as `await host.scan(update => update.done)`. The bridge carries `Uint8Array` values in both directions. Describe the methods in the app's `execute` tool description or skill so scripts know what they can call.
-
-A Node app can use the same option with its Pi sandbox:
-
-```ts
-import { CodemodeSandbox } from "@earendil-works/pi-codemode";
-import { createCodeModeSandbox, RpcTarget } from "@exterioragentprotocol/sdk/client/codemode";
-
-class ReportHost extends RpcTarget {
-  read() {
-    return Uint8Array.of(2, 7, 9);
-  }
-}
-
-const sandbox = createCodeModeSandbox({
-  createSandbox: options => new CodemodeSandbox(options),
-  host: () => new ReportHost(),
-});
-const result = await sandbox.execute("return Array.from(await host.read());");
-```
-
-Expose only methods and properties the running script is authorized to use. The host factory receives a signal that aborts when execution finishes, fails, times out, or is canceled. Pass it to operations that can outlive a call. Cap’n Web releases its remote references when the session closes. Host calls travel through Pi globals and the app can record their effects from its host methods.
-
-For a callback that will be used after the receiving method returns, retain a copy with `callback.dup()` and dispose it when the operation ends. See [Cap’n Web disposal](https://capnweb.com/concepts/disposal/).
-
 ### Saved scripts
 
 The Code Mode extension can use an app-owned catalog inspired by [Cloudflare Code Mode snippets](https://github.com/cloudflare/agents/blob/06a271526fd7d4a6dd1ee0ea238fe30402494880/docs/codemode/snippets.md). The app saves useful source explicitly. Changing a harness or ACP session leaves the catalog in the app's storage. Apps that only need ad hoc execution can omit the catalog and storage configuration.
