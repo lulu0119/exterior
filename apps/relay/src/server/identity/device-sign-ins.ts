@@ -1,35 +1,45 @@
-import type { ExteriorAuth } from "./auth.js";
+import type Database from "better-sqlite3";
+import { expressionBuilder, Kysely, sql, SqliteDialect } from "kysely";
 
-type StoredRefreshToken = {
-  id: string;
-  userId?: string | null;
-  expiresAt: Date | string;
-  revoked?: Date | string | null;
-  confirmation?: { jkt?: string } | null;
+type Device = { userId: string; deviceId: string };
+
+type RefreshTokenDatabase = {
+  oauthRefreshToken: {
+    userId: string | null;
+    confirmation: string | null;
+    revoked: string | null;
+    expiresAt: string;
+  };
 };
 
-/**
- * Whether the account still has a sign-in for the device: a live refresh token bound to its key. A device's access
- * token outlives removal and `logout` until it expires, so the device socket is opened only while this holds.
- */
-export async function deviceSignedIn(exterior: ExteriorAuth, input: { userId: string; deviceId: string }): Promise<boolean> {
-  return (await deviceRefreshTokens(exterior, input)).some((row) => !row.revoked && new Date(row.expiresAt).getTime() > Date.now());
+const refreshToken = expressionBuilder<RefreshTokenDatabase, "oauthRefreshToken">();
+const deviceThumbprint = refreshToken.fn<string | null>("json_extract", [refreshToken.ref("confirmation"), sql.lit("$.jkt")]);
+
+function tokenBelongsToDevice({ userId, deviceId }: Device) {
+  return refreshToken.and([refreshToken("userId", "=", userId), refreshToken(deviceThumbprint, "=", deviceId)]);
 }
 
-/**
- * Signs the device out of the account: deletes every refresh token bound to its key. Deleted rather than marked
- * revoked: the provider answers a replayed revoked token by revoking the whole family of the client and account,
- * which would sign out every other device that uses the same device software.
- */
-export async function signOutDevice(exterior: ExteriorAuth, input: { userId: string; deviceId: string }): Promise<void> {
-  const context = await exterior.auth.$context;
-  for (const row of await deviceRefreshTokens(exterior, input)) {
-    await context.adapter.delete({ model: "oauthRefreshToken", where: [{ field: "id", value: row.id }] });
-  }
-}
+export async function openDeviceSignIns(database: Database.Database) {
+  const db = new Kysely<RefreshTokenDatabase>({ dialect: new SqliteDialect({ database }) });
+  await db.schema.createIndex("eap_device_refresh_token")
+    .ifNotExists()
+    .on("oauthRefreshToken")
+    .column("userId")
+    .expression(deviceThumbprint)
+    .execute();
 
-async function deviceRefreshTokens(exterior: ExteriorAuth, input: { userId: string; deviceId: string }): Promise<StoredRefreshToken[]> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredRefreshToken>({ model: "oauthRefreshToken", where: [{ field: "userId", value: input.userId }] });
-  return rows.filter((row) => row.userId === input.userId && row.confirmation?.jkt === input.deviceId);
+  return {
+    async isSignedIn(device: Device): Promise<boolean> {
+      const liveToken = db.selectFrom("oauthRefreshToken")
+        .select("userId")
+        .where(tokenBelongsToDevice(device))
+        .where("revoked", "is", null)
+        .where("expiresAt", ">", new Date().toISOString());
+      const { signedIn } = await db.selectNoFrom(({ exists }) => exists(liveToken).as("signedIn")).executeTakeFirstOrThrow();
+      return Boolean(signedIn);
+    },
+    async signOut(device: Device): Promise<void> {
+      await db.deleteFrom("oauthRefreshToken").where(tokenBelongsToDevice(device)).execute();
+    },
+  };
 }

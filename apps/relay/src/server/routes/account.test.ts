@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { exteriorDeviceClient } from "@exterior/contract";
 import { clientScope, deviceCloseCodes, devicesPath, deviceScope, deviceSocketPath, relayWebSocketUrl } from "@exterioragentprotocol/sdk";
-import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, refreshAccessToken, RefreshTokenRejectedError } from "@exterioragentprotocol/sdk/device";
+import { beginDeviceAuthorization, deviceIdOf, dpopProof, generateDeviceKey, pollDeviceAuthorization, refreshAccessToken, RefreshTokenRejectedError, type DeviceKey } from "@exterioragentprotocol/sdk/device";
 import { WebSocket } from "ws";
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { serve } from "@hono/node-server";
 import { onTestFinished, test, vi } from "vitest";
+import type { DashboardData } from "../../shared/account-web.js";
 import { openExteriorAuth } from "../identity/auth.js";
 import { registerClient } from "../identity/clients.js";
 import { createTestApp } from "../testing.js";
@@ -95,7 +96,7 @@ test("approving a web app redirects back with an authorization code", async () =
 });
 
 // Served on a real port: the device signs in through the SDK, which discovers the relay and fetches its JWKS.
-test("a device signs in with a key, connects as that key, and removing it signs it out", async () => {
+test("a device can connect and be removed in an account with more than 100 refresh tokens", async () => {
   const port = await freePort();
   const publicUrl = `http://127.0.0.1:${port}`;
   const secret = "test-secret-test-secret-test-secret";
@@ -118,18 +119,51 @@ test("a device signs in with a key, connects as that key, and removing it signs 
   });
 
   // Exterior's device software is a metadata document the relay knows; the device itself is a key.
+  const approveDevice = async (accountCookie: string) => {
+    const pending = await beginDeviceAuthorization({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id });
+    assert.equal((await app.request(`${publicUrl}/device?user_code=${pending.userCode}`, { headers: { cookie: accountCookie } })).status, 200);
+    const approved = await app.request(`${publicUrl}/device`, {
+      method: "POST",
+      headers: { cookie: accountCookie, "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ userCode: pending.userCode, decision: "approve" }),
+    });
+    assert.match(await approved.text(), /Device connected/);
+    return pending;
+  };
+  const pending = await approveDevice(cookie);
+  const otherKey = await generateDeviceKey();
+  const otherDeviceId = await deviceIdOf(otherKey);
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + 60_000);
+  for (let index = 0; index < 100; index += 1) {
+    await context.adapter.create({
+      model: "oauthRefreshToken",
+      forceAllowId: true,
+      data: {
+        id: `!fixture-${index}`,
+        token: `fixture-token-${index}`,
+        clientId: exteriorDeviceClient.client_id,
+        userId: user.id,
+        scopes: [deviceScope, "offline_access"],
+        confirmation: { jkt: "fixture-device" },
+        createdAt,
+        expiresAt,
+      },
+    });
+  }
   const key = await generateDeviceKey();
   const deviceId = await deviceIdOf(key);
-  const pending = await beginDeviceAuthorization({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id });
-  assert.equal((await app.request(`${publicUrl}/device?user_code=${pending.userCode}`, { headers: { cookie } })).status, 200);
-  const approved = await app.request(`${publicUrl}/device`, {
-    method: "POST",
-    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ userCode: pending.userCode, decision: "approve" }),
-  });
-  assert.match(await approved.text(), /Device connected/);
-  const tokens = await pollDeviceAuthorization(pending, key);
-  const refreshToken = tokens.refreshToken ?? "";
+  const otherAccount = await context.internalAdapter.createUser({ name: "Grace", email: "grace@example.test", emailVerified: true }, { method: "test" });
+  const otherSession = await context.internalAdapter.createSession(otherAccount.id);
+  const otherAccountCookie = await sessionCookie(otherSession.token, secret);
+  const [otherDevicePending, otherAccountPending] = await Promise.all([approveDevice(cookie), approveDevice(otherAccountCookie)]);
+  const [tokens, otherTokens, otherAccountTokens] = await Promise.all([
+    pollDeviceAuthorization(pending, key),
+    pollDeviceAuthorization(otherDevicePending, otherKey),
+    pollDeviceAuthorization(otherAccountPending, key),
+  ]);
+  assert.ok(tokens.refreshToken);
+  assert.ok(otherAccountTokens.refreshToken);
 
   // The token is bound to the key: without a proof it opens nothing.
   const bare = new WebSocket(relayWebSocketUrl(publicUrl, deviceSocketPath), { headers: { authorization: `Bearer ${tokens.accessToken}` } });
@@ -140,17 +174,22 @@ test("a device signs in with a key, connects as that key, and removing it signs 
   });
   assert.equal(asClient.status, 403);
 
-  const connect = async () => {
+  const connect = async (deviceKey: DeviceKey, accessToken: string, hostname: string) => {
     const url = relayWebSocketUrl(publicUrl, deviceSocketPath);
-    const socket = new WebSocket(url, { headers: { authorization: `DPoP ${tokens.accessToken}`, dpop: await dpopProof(key, "GET", url, tokens.accessToken) } });
+    const socket = new WebSocket(url, { headers: { authorization: `DPoP ${accessToken}`, dpop: await dpopProof(deviceKey, "GET", url, accessToken) } });
+    onTestFinished(() => socket.close());
     await once(socket, "open");
-    socket.send(JSON.stringify({ type: "hello", hostname: "studio", platform: "linux", workingDirectory: "/home/ada/work", agents: [] }));
+    socket.send(JSON.stringify({ type: "hello", hostname, platform: "linux", workingDirectory: "/home/ada/work", agents: [] }));
     return socket;
   };
-  const control = await connect();
-  const dashboard = async () => ((await (await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } })).json()) as { devices: { id: string; hostname: string; online: boolean }[] }).devices;
-  await waitFor(async () => (await dashboard()).length === 1);
-  assert.deepEqual((await dashboard()).map(({ id, hostname, online }) => ({ id, hostname, online })), [{ id: deviceId, hostname: "studio", online: true }]);
+  const control = await connect(key, tokens.accessToken, "studio");
+  const listedDevices = async () => {
+    const response = await app.request(`${publicUrl}/api/dashboard`, { headers: { cookie } });
+    const { devices } = (await response.json()) as DashboardData;
+    return devices.map(({ id, hostname, online }) => ({ id, hostname, online }));
+  };
+  await waitFor(async () => (await listedDevices()).length === 1);
+  assert.deepEqual(await listedDevices(), [{ id: deviceId, hostname: "studio", online: true }]);
 
   // Removing the device closes its socket, and the access token it still holds no longer opens one.
   const closed = once(control, "close");
@@ -161,10 +200,21 @@ test("a device signs in with a key, connects as that key, and removing it signs 
   });
   assert.equal(removed.status, 200, await removed.clone().text());
   assert.equal(((await closed) as [number])[0], deviceCloseCodes.revoked);
-  assert.deepEqual(await dashboard(), []);
-  const again = await connect();
+  assert.deepEqual(await listedDevices(), []);
+  const again = await connect(key, tokens.accessToken, "studio");
   assert.equal(((await once(again, "close")) as [number])[0], deviceCloseCodes.revoked);
+  const { refreshToken } = tokens;
   await assert.rejects(refreshAccessToken({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id, refreshToken, deviceKey: key }), RefreshTokenRejectedError);
+  const refreshed = await refreshAccessToken({
+    relayUrl: publicUrl,
+    clientId: exteriorDeviceClient.client_id,
+    refreshToken: otherAccountTokens.refreshToken,
+    deviceKey: key,
+  });
+  assert.ok(refreshed.refreshToken);
+  await connect(otherKey, otherTokens.accessToken, "other-device");
+  await waitFor(async () => (await listedDevices()).length === 1);
+  assert.deepEqual(await listedDevices(), [{ id: otherDeviceId, hostname: "other-device", online: true }]);
   // The device polls at the interval the provider names, five seconds.
 }, 20_000);
 

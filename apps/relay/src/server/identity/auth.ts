@@ -8,6 +8,7 @@ import { clientScope, deviceScope } from "@exterioragentprotocol/sdk";
 import { bearer, jwt } from "better-auth/plugins";
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
+import { openDeviceSignIns } from "./device-sign-ins.js";
 
 export type ExteriorAuthConfig = {
   database: Database.Database;
@@ -22,7 +23,8 @@ export type ExteriorAuthConfig = {
 export async function openExteriorAuth(config: ExteriorAuthConfig) {
   const built = buildExteriorAuth(config);
   await migrateAuth(built.options);
-  return { ...built, auth: betterAuth(built.options) };
+  const deviceSignIns = await openDeviceSignIns(config.database);
+  return { ...built, auth: betterAuth(built.options), deviceSignIns };
 }
 
 function buildExteriorAuth(config: ExteriorAuthConfig) {

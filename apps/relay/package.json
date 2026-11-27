@@ -25,6 +25,7 @@
     "better-sqlite3": "^12.6.2",
     "cn": "^0.4.0",
     "hono": "^4.10.7",
+    "kysely": "0.29.6",
     "lucide-react": "^1.55.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

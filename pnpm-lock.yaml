@@ -204,6 +204,9 @@ importers:
       hono:
         specifier: ^4.10.7
         version: 4.13.13
+      kysely:
+        specifier: 0.29.6
+        version: 0.29.6
       lucide-react:
         specifier: ^1.55.0
         version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
