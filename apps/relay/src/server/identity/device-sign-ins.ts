@@ -29,7 +29,24 @@ export async function signOutDevice(exterior: ExteriorAuth, input: { userId: str
 }
 
 async function deviceRefreshTokens(exterior: ExteriorAuth, input: { userId: string; deviceId: string }): Promise<StoredRefreshToken[]> {
-  const context = await exterior.auth.$context;
-  const rows = await context.adapter.findMany<StoredRefreshToken>({ model: "oauthRefreshToken", where: [{ field: "userId", value: input.userId }] });
-  return rows.filter((row) => row.userId === input.userId && row.confirmation?.jkt === input.deviceId);
+  const { adapter } = await exterior.auth.$context;
+  const account = { field: "userId", value: input.userId };
+  const pageSize = 100;
+  const tokens: StoredRefreshToken[] = [];
+  let afterId: string | undefined;
+  for (;;) {
+    const page = await adapter.findMany<StoredRefreshToken>({
+      model: "oauthRefreshToken",
+      select: ["id", "userId", "confirmation", "expiresAt", "revoked"],
+      where: afterId === undefined ? [account] : [account, { field: "id", operator: "gt", value: afterId }],
+      sortBy: { field: "id", direction: "asc" },
+      limit: pageSize,
+    });
+    for (const row of page) {
+      if (row.userId === input.userId && row.confirmation?.jkt === input.deviceId) tokens.push(row);
+    }
+    const last = page.at(-1);
+    if (!last || page.length < pageSize) return tokens;
+    afterId = last.id;
+  }
 }
