@@ -23,7 +23,8 @@ export type ExteriorAuthConfig = {
 export async function openExteriorAuth(config: ExteriorAuthConfig) {
   const built = buildExteriorAuth(config);
   await migrateAuth(built.options);
-  return { ...built, auth: betterAuth(built.options), deviceSignIns: openDeviceSignIns(config.database) };
+  const deviceSignIns = await openDeviceSignIns(config.database);
+  return { ...built, auth: betterAuth(built.options), deviceSignIns };
 }
 
 function buildExteriorAuth(config: ExteriorAuthConfig) {

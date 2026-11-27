@@ -36,7 +36,7 @@ export function mountDashboard(app: Hono<RelayEnv>, input: {
     const deviceId = typeof body === "object" && body !== null && "deviceId" in body && typeof body.deviceId === "string" ? body.deviceId : undefined;
     if (!deviceId) return c.json({ message: "Choose a device." }, 400);
     if (!input.devices.remove({ userId: account.userId, deviceId })) return c.json({ message: "That device is not on this account." }, 404);
-    input.exterior.deviceSignIns.signOut({ userId: account.userId, deviceId });
+    await input.exterior.deviceSignIns.signOut({ userId: account.userId, deviceId });
     input.registry.removeDevice({ userId: account.userId, deviceId });
     return c.json({ removed: true });
   });
