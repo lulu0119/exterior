@@ -13,7 +13,6 @@ import { publicRequest, type RelayEnv, type ReadAccess } from "./http.js";
 import type { ExteriorAuth } from "./identity/auth.js";
 import { isBrowserAuthorizeRequest, readBrowserAuthorizeError } from "./identity/authorize-error.js";
 import { guardAuthRequest } from "./identity/clients.js";
-import { deviceSignedIn } from "./identity/device-sign-ins.js";
 import { hasGrant } from "./identity/grants.js";
 import { readAccess } from "./identity/session.js";
 import { readWebAssets } from "./rendering/assets.js";
@@ -126,7 +125,7 @@ export function createRelayApp(input: {
   });
   mountSockets(app, {
     exterior: input.exterior,
-    deviceSignedIn: input.deviceSignedIn ?? ((access) => deviceSignedIn(input.exterior, access)),
+    deviceSignedIn: input.deviceSignedIn ?? input.exterior.deviceSignIns.isSignedIn,
     registry: input.registry,
     readAccess: readAccessAccount,
     resourceMetadataUrl,

@@ -5,7 +5,6 @@ import type { DashboardData, DeviceView } from "../../shared/account-web.js";
 import type { AgentCatalog } from "../agents/catalog.js";
 import type { Registry } from "@exterioragentprotocol/sdk/relay";
 import type { DeviceStore } from "../devices/store.js";
-import { signOutDevice } from "../identity/device-sign-ins.js";
 import { readAccount, type Account } from "../identity/session.js";
 import type { PageRenderer } from "../rendering/render-page.js";
 import { setupGuide } from "../rendering/setup-guide.js";
@@ -37,7 +36,7 @@ export function mountDashboard(app: Hono<RelayEnv>, input: {
     const deviceId = typeof body === "object" && body !== null && "deviceId" in body && typeof body.deviceId === "string" ? body.deviceId : undefined;
     if (!deviceId) return c.json({ message: "Choose a device." }, 400);
     if (!input.devices.remove({ userId: account.userId, deviceId })) return c.json({ message: "That device is not on this account." }, 404);
-    await signOutDevice(input.exterior, { userId: account.userId, deviceId });
+    input.exterior.deviceSignIns.signOut({ userId: account.userId, deviceId });
     input.registry.removeDevice({ userId: account.userId, deviceId });
     return c.json({ removed: true });
   });

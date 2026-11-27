@@ -95,7 +95,7 @@ test("approving a web app redirects back with an authorization code", async () =
 });
 
 // Served on a real port: the device signs in through the SDK, which discovers the relay and fetches its JWKS.
-test("a device connects and can be removed when its sign-in is beyond the first page of tokens", async () => {
+test("a device can connect and be removed in an account with more than 100 refresh tokens", async () => {
   const port = await freePort();
   const publicUrl = `http://127.0.0.1:${port}`;
   const secret = "test-secret-test-secret-test-secret";
@@ -118,12 +118,12 @@ test("a device connects and can be removed when its sign-in is beyond the first 
   });
 
   // Exterior's device software is a metadata document the relay knows; the device itself is a key.
-  const signIn = async (key: DeviceKey) => {
+  const signIn = async (key: DeviceKey, accountCookie = cookie) => {
     const pending = await beginDeviceAuthorization({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id });
-    assert.equal((await app.request(`${publicUrl}/device?user_code=${pending.userCode}`, { headers: { cookie } })).status, 200);
+    assert.equal((await app.request(`${publicUrl}/device?user_code=${pending.userCode}`, { headers: { cookie: accountCookie } })).status, 200);
     const approved = await app.request(`${publicUrl}/device`, {
       method: "POST",
-      headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+      headers: { cookie: accountCookie, "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ userCode: pending.userCode, decision: "approve" }),
     });
     assert.match(await approved.text(), /Device connected/);
@@ -152,7 +152,10 @@ test("a device connects and can be removed when its sign-in is beyond the first 
   }
   const key = await generateDeviceKey();
   const deviceId = await deviceIdOf(key);
-  const tokens = await signIn(key);
+  const otherAccount = await context.internalAdapter.createUser({ name: "Grace", email: "grace@example.test", emailVerified: true }, { method: "test" });
+  const otherSession = await context.internalAdapter.createSession(otherAccount.id);
+  const otherAccountCookie = await sessionCookie(otherSession.token, secret);
+  const [tokens, otherAccountTokens] = await Promise.all([signIn(key), signIn(key, otherAccountCookie)]);
   const refreshToken = tokens.refreshToken ?? "";
 
   // The token is bound to the key: without a proof it opens nothing.
@@ -190,6 +193,12 @@ test("a device connects and can be removed when its sign-in is beyond the first 
   const again = await connect(key, tokens.accessToken, "studio");
   assert.equal(((await once(again, "close")) as [number])[0], deviceCloseCodes.revoked);
   await assert.rejects(refreshAccessToken({ relayUrl: publicUrl, clientId: exteriorDeviceClient.client_id, refreshToken, deviceKey: key }), RefreshTokenRejectedError);
+  assert.ok((await refreshAccessToken({
+    relayUrl: publicUrl,
+    clientId: exteriorDeviceClient.client_id,
+    refreshToken: otherAccountTokens.refreshToken ?? "",
+    deviceKey: key,
+  })).refreshToken);
   await connect(otherKey, otherTokens.accessToken, "other-device");
   await waitFor(async () => (await dashboard()).length === 1);
   assert.deepEqual((await dashboard()).map(({ id, hostname, online }) => ({ id, hostname, online })), [{ id: otherDeviceId, hostname: "other-device", online: true }]);
