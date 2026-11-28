@@ -49,8 +49,24 @@ The directory on a device an agent session works in. A web app runs on another c
 _Avoid_: `/` as "no directory", workspace (Example's word for a directory the person added)
 
 **MCP endpoint**:
-An MCP server a web app serves from its page through the relay, for tools that run in the page. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
+An MCP server a web app serves from its page through the relay, for the tools, skills and resources an app chooses to offer. The agent reaches it over HTTP at the relay with the endpoint's token; the page holds its MCP socket, and the endpoint ends with that socket. Opened with `POST /eap/v1/mcp-endpoints` (`serveMcp` in the SDK).
 _Avoid_: MCP gateway, bridge, tunnel, tool server
+
+**MCP Skill**:
+An app-published `SKILL.md` and its supporting files. A supporting harness discovers the skill metadata and reads files from their MCP origin on demand.
+_Avoid_: saved script, installed local skill
+
+**Code Mode**:
+A way for an agent to compose an app's capabilities in a script and use its result in a conversation.
+_Avoid_: remote shell, daemon execution
+
+**Code Mode tool**:
+An operation an app makes callable from a script, with a description and data shapes the agent can discover.
+_Avoid_: full SDK, MCP endpoint
+
+**Saved script**:
+Named Code Mode source an app keeps for reuse, with a description and optional input schema. Its catalog belongs to that app and remains available when the app changes harnesses or ACP sessions.
+_Avoid_: harness memory, global skill, execution record
 
 **Ticket**:
 The single-use short-lived credential that binds one browser socket to one connection. It travels in the WebSocket URL because a browser socket cannot set `Authorization`. Dialing it consumes it.

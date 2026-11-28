@@ -1,12 +1,14 @@
 # A web app serves MCP tools through the relay
 
-Status: accepted
+Status: updated by [ADR 0035](0035-an-app-serves-one-modern-mcp-endpoint.md). The original decision follows.
 
 A web app such as Playground runs its tools in the page: a `codemode` tool, a desktop, a store. The agent runs on the person's device, which cannot reach the page. Without help, every such app deploys its own backend to take MCP requests and forward them to its page.
 
 The relay does that once for every app. A client opens an MCP endpoint with `POST /eap/v1/mcp-endpoints`, dials the returned MCP socket with a ticket, and gives the agent the endpoint as an ACP `mcpServers` entry of type `http`: the relay's `/eap/v1/mcp` address and an `Authorization: Bearer` header holding the endpoint's own token. The relay ends MCP's Streamable HTTP with the MCP SDK's transport, one per MCP session, and carries each session's JSON-RPC messages over the socket, tagged with the session. The page connects one MCP server per session through `serveMcp` in the SDK's `client` entry. The endpoint lasts as long as the socket. When the socket closes, the relay answers the calls the page had not answered, and the token is answered 404 from then on.
 
 This is the stable ACP path: `mcpServers` with `http`, which OpenCode supports, checked against `mcpCapabilities.http`. ACP's draft MCP-over-ACP RFD carries client tools over the ACP connection itself and would need no relay change, but it targets MCP 2026-07-28 only and OpenCode does not support it. That RFD describes an HTTP adapter for agents without it, and the endpoint is that adapter, on the relay because the agent and the page are on different computers.
+
+[ADR 0032](0032-an-app-serves-code-mode-with-pi.md) describes the SDK's Code Mode execution tool.
 
 ## Considered Options
 

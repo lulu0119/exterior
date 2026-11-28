@@ -27,6 +27,14 @@
       "types": "./dist/client/react.d.ts",
       "import": "./dist/client/react.js"
     },
+    "./client/codemode": {
+      "types": "./dist/client/codemode/index.d.ts",
+      "import": "./dist/client/codemode/index.js"
+    },
+    "./client/codemode/worker": {
+      "types": "./dist/client/codemode/browser.worker.d.ts",
+      "import": "./dist/client/codemode/browser.worker.js"
+    },
     "./device": {
       "types": "./dist/device/index.d.ts",
       "import": "./dist/device/index.js"
@@ -37,14 +45,21 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' > dist/.npmignore",
+    "build": "tsc -p tsconfig.json && node scripts/copy-wasm.mjs && printf '%s\n' '*.test.js' '*.test.js.map' '*.test.d.ts' '*.test.d.ts.map' '*.tsbuildinfo' 'client/test-support/' > dist/.npmignore",
     "prepublishOnly": "pnpm run build",
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
+    "@earendil-works/pi-codemode": "1.5.2",
+    "@modelcontextprotocol/server": "2.4.0",
+    "@moeru/eventa": "^1.0.2",
+    "fuse.js": "^7.5.0",
     "oauth4webapi": "^3.8.8",
+    "quickjs-wasi": "3.6.2",
+    "unstorage": "^1.17.6",
     "valibot": "^1.5.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "react": "^19"
@@ -55,6 +70,7 @@
     }
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.6.0",
     "@types/react": "^19.2.0",

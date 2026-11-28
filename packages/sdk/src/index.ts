@@ -50,17 +50,12 @@ export type DeviceCloseReason = keyof typeof deviceCloseCodes;
 export const mcpSocketCloseCodes = { ticket_rejected: 4300, revoked: 4301 } as const;
 export type McpSocketCloseReason = keyof typeof mcpSocketCloseCodes;
 
+export const mcpProtocolVersion = "2026-07-28";
+
 /** The largest frame on an MCP socket, in UTF-8 bytes. A tool result may carry an image. */
 export const mcpFrameBytes = 16_777_216;
 
-/**
- * A frame on an MCP socket. `session` is the MCP session (`Mcp-Session-Id`) the message belongs to, and each MCP
- * session is one MCP server on the page. The relay sends `closed` once a session ends; the page sends only messages.
- * `relatedRequestId` names the request a notification belongs to, so the relay sends it on that request's response.
- */
-export type McpFrame =
-  | { session: string; message: object; relatedRequestId?: string | number }
-  | { session: string; closed: true };
+export type McpFrame = v.InferOutput<typeof McpFrameSchema>;
 
 /** An error response's `code`. A client decides by it; an unknown one counts as `server_error`. */
 export const errorCodes = [
@@ -173,9 +168,15 @@ function parseMessage<Schema extends v.GenericSchema>(schema: Schema, types: rea
   return parsed.success ? { ok: true, message: parsed.output } : { ok: false, reason: "invalid" };
 }
 
-const McpFrameSchema = v.union([
-  v.strictObject({ session: v.pipe(v.string(), v.minLength(1)), message: v.looseObject({}), relatedRequestId: v.optional(v.union([v.string(), v.number()])) }),
-  v.strictObject({ session: v.pipe(v.string(), v.minLength(1)), closed: v.literal(true) }),
+const exchange = v.pipe(v.string(), v.minLength(1));
+const McpFrameSchema = v.variant("type", [
+  v.strictObject({ type: v.literal("request"), exchange, headers: v.record(v.string(), v.string()), body: v.string() }),
+  v.strictObject({ type: v.literal("response"), exchange, status: v.pipe(v.number(), v.integer(), v.minValue(200), v.maxValue(599)), contentType: v.picklist(["application/json", "text/event-stream", "text/plain"]), hasBody: v.boolean() }),
+  v.strictObject({ type: v.literal("pull"), exchange }),
+  v.strictObject({ type: v.literal("data"), exchange, text: v.string() }),
+  v.strictObject({ type: v.literal("end"), exchange }),
+  v.strictObject({ type: v.literal("cancel"), exchange }),
+  v.strictObject({ type: v.literal("error"), exchange }),
 ]);
 
 /** Reads an MCP socket frame, or undefined for one that does not follow the protocol. */
