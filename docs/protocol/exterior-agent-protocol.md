@@ -90,7 +90,7 @@ The attach address is not fixed: the relay returns it when a connection opens. N
 
 The protected resource metadata names the relay address as `resource`, which every token request passes as the resource indicator (RFC 8707). It lists at least one `authorization_servers` entry, `scopes_supported` including `eap:client` and `eap:device`, and `dpop_signing_alg_values_supported`. A client or device reads the authorization server's own metadata from there, as RFC 8414 or, failing that, OpenID Connect Discovery.
 
-A frame is at most 1 MiB (1,048,576 bytes) of UTF-8.
+A frame is at most 4 MiB (4,194,304 bytes) of UTF-8.
 
 ## 4. Authorization
 
@@ -298,7 +298,7 @@ A connection does not depend on the device socket. A device whose device socket 
 The attach socket and the agent socket carry frames under the same rules.
 
 - Each WebSocket text message is one frame, and each frame carries one ACP JSON-RPC message without a raw newline.
-- Binary messages are refused: the relay closes the socket with 1003. A frame larger than 1 MiB closes it with 1009.
+- Binary messages are refused: the relay closes the socket with 1003. A frame larger than 4 MiB closes it with 1009 (`frame_too_large`).
 - The relay passes frames between the two sockets one to one, in order, without joining, splitting, dropping or reading them, and sends nothing else on them.
 - The relay does not read the agent socket until a client attaches, so an agent that writes first waits instead of the relay holding its output.
 - When one socket has more unsent data than a bound the relay chooses, at least 1 MiB, the relay stops reading the other until it drains. A slow client slows its own agent and nothing else.
@@ -349,7 +349,7 @@ Every message is a JSON text message with a `type` field. A receiver MUST ignore
 
 Once the agent has started, the device dials `/eap/v1/device/connections/{connectionId}` with a DPoP proof of its key and no access token. The relay answers a dial without a valid proof 401. It accepts one dial for a connection, while the connection is opening, and only from the device it was opened on: the proof's key thumbprint is the connection's device id. It closes any other dial with 1008. The connection id is unguessable and reaches only the device, but it is not enough alone.
 
-- The device closes the agent socket with 1000 when the agent ends, and the relay closes the attach socket with `agent_exited`. A device that shuts down closes it with 1001. When the agent socket closes any other way than with 1000, the relay closes the attach socket with `device_gone`.
+- The device closes the agent socket with 1000 when the agent ends, and the relay closes the attach socket with `agent_exited`. A device that shuts down closes it with 1001. If the agent socket closes with 1009, the relay closes the attach socket with 1009 (`frame_too_large`). Other agent socket closures map to `device_gone`.
 - When the connection ends for any other reason the relay closes the agent socket, and the device stops the agent.
 
 ### 11.1 Agent carriage
@@ -358,7 +358,7 @@ The device runs the agent as an ACP stdio agent, in the directory it reported as
 
 - A frame from the agent socket is written to the agent's standard input followed by a newline. The device ignores a frame that contains a raw newline.
 - The device reads standard output as UTF-8, replacing invalid sequences with U+FFFD. Each line is a frame, without its line ending: LF, or CR LF. Empty lines are dropped.
-- A device stops an agent that writes a line longer than a frame.
+- A device closes the agent socket with 1009 (`frame_too_large`) and stops the agent when it writes a line longer than a frame.
 - The device stops reading standard output while the agent socket has more than 1 MiB unsent, and stops reading the agent socket while standard input is full.
 - Standard error is not forwarded.
 
@@ -402,7 +402,7 @@ An MCP endpoint lasts as long as its MCP socket, and is never resumed. When the 
 
 The relay MUST ping every socket, and a device MUST ping every socket it opens, every 30 seconds with a protocol-level ping. A side whose previous ping is unanswered when the next is due MUST terminate the socket. A browser cannot send a ping; it answers the relay's.
 
-Each code is unique across EAP and each socket kind has its own range, so a code names the socket and the condition in a log. The reason string is the name.
+Each EAP code is unique and each socket kind has its own range, so a code names the socket and the condition in a log. The reason string is the name.
 
 Attach socket, 4100 to 4199. Every close ends the connection.
 
@@ -412,6 +412,8 @@ Attach socket, 4100 to 4199. Every close ends the connection.
 | 4101 | `agent_exited` | The agent ended. |
 | 4102 | `device_gone` | The agent socket dropped, the device shut down, or the device was removed. |
 | 4103 | `revoked` | The client's grant no longer permits this connection. Do not open another before signing in again. |
+
+An ACP frame larger than 4 MiB closes the attach socket with WebSocket code 1009 and reason `frame_too_large`, whether sent by the browser or the agent.
 
 Device socket, 4200 to 4299:
 
@@ -431,7 +433,7 @@ A device socket also closes with 1008 `invalid_message` when the device sends a 
 
 Agent socket: 1000 when the connection ends normally, 1001 when the device shuts down, and 1008 for a dial the relay is not waiting for or that comes from another device.
 
-Every socket: 1003 for a binary message and 1009 for a frame larger than its limit, 1 MiB or, on an MCP socket, 16 MiB.
+Every socket: 1003 for a binary message and 1009 for a frame larger than its limit. The ACP frame limit is 4 MiB and the MCP frame limit is 16 MiB.
 
 An upgrade refused before the socket opens is answered 401 or 403 as in section 4. A device told `revoked` MUST NOT reconnect until it signs in again. A device told `replaced` SHOULD wait the longest of its retry delays before connecting again.
 

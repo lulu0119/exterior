@@ -106,8 +106,8 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
           if (frame !== undefined) link?.frame(frame);
         },
         onClose(event) {
-          // The device closes normally when the agent ends; anything else is the device going away.
-          link?.closed(event.code === 1000);
+          if (event.code === attachCloseCodes.frame_too_large) return link?.closed("frame_too_large");
+          link?.closed(event.code === 1000 ? "agent_exited" : "device_gone");
         },
       };
     }),
@@ -152,7 +152,7 @@ function readFrame(data: unknown, ws: WSContext<WebSocket>): string | undefined 
     return undefined;
   }
   if (Buffer.byteLength(data) > frameBytes) {
-    ws.close(1009, "frame");
+    ws.close(attachCloseCodes.frame_too_large, "frame_too_large");
     return undefined;
   }
   return data;

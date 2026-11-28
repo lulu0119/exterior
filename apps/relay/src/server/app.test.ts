@@ -55,6 +55,39 @@ test("a device dials one agent socket per connection, and the ticket joins it to
   }
 });
 
+test("the relay forwards a 4 MiB ACP frame and reports an oversized agent frame to the browser", async ({ onTestFinished }) => {
+  const relay = await listen({});
+  const control = new WebSocket(`${relay.ws}/eap/v1/device`, { headers: device });
+  try {
+    await once(control, "open");
+    control.send(hello);
+    await waitForDevice(relay.http);
+    const agentSocket = dialAgentOnOpen(control, relay.ws);
+    const opened = await openConnection(relay.http);
+    assert.equal(opened.status, 201);
+    const { url } = (await opened.json()) as { url: string };
+    const agent = await agentSocket;
+    onTestFinished(() => agent.terminate());
+    const browser = new WebSocket(relay.attach(url));
+    onTestFinished(() => browser.terminate());
+    await once(browser, "open");
+
+    const atLimit = "x".repeat(4_194_304);
+    const received = nextText(browser);
+    agent.send(atLimit);
+    assert.ok(await received === atLimit, "the browser receives the complete frame");
+
+    const browserClosed = once(browser, "close");
+    agent.send(atLimit.slice(1) + "é");
+    const [code, reason] = await browserClosed;
+    assert.equal(code, 1009);
+    assert.equal(reason.toString(), "frame_too_large");
+  } finally {
+    control.close();
+    relay.close();
+  }
+});
+
 test("a second dial on a ticket is rejected, and the client closing its socket closes the agent socket", async () => {
   const relay = await listen({ registry: createRegistry({ openTimeoutMs: 2_000 }) });
   const control = new WebSocket(`${relay.ws}/eap/v1/device`, { headers: device });

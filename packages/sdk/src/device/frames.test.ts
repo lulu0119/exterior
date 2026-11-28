@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { consumeAgentChunk, maxPendingAgentChars, webSocketTextToAgentLine } from "./frames.js";
+import { frameBytes } from "../index.js";
+import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 
 test("a web socket text frame becomes one agent line", () => {
   assert.equal(webSocketTextToAgentLine('{"jsonrpc":"2.0","id":1}'), '{"jsonrpc":"2.0","id":1}\n');
@@ -16,8 +17,17 @@ test("agent stdout becomes one frame per line, including a split chunk", () => {
 });
 
 test("an unfinished line past the cap is dropped", () => {
-  const consumed = consumeAgentChunk("", `{"id":1}\n${"x".repeat(maxPendingAgentChars + 1)}`);
+  const consumed = consumeAgentChunk("", `{"id":1}\n${"x".repeat(frameBytes + 1)}`);
   assert.equal(consumed.overflow, true);
   assert.deepEqual(consumed.frames, ['{"id":1}']);
   assert.equal(consumed.pending, "");
+});
+
+test("a line at the cap can end with a split CRLF", () => {
+  const frame = "x".repeat(frameBytes);
+  const partial = consumeAgentChunk("", `${frame}\r`);
+  assert.equal(partial.overflow, false);
+  const complete = consumeAgentChunk(partial.pending, "\n");
+  assert.equal(complete.frames.length, 1);
+  assert.ok(complete.frames[0] === frame);
 });

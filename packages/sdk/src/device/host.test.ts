@@ -89,6 +89,23 @@ test("an open starts the agent and dials its own agent socket, which carries one
   }
 });
 
+test("the device closes with a size error when agent output exceeds 4 MiB", async () => {
+  const relay = await fakeRelay();
+  try {
+    const host = createDeviceHost({ deviceKey, relayUrl: relay.url, hostname: "studio", platform: "linux", workingDirectory, agents: [work], launch: () => echo() });
+    host.attach(() => undefined);
+    host.receive({ type: "open", connectionId, agentName: "work" });
+    const [socket] = await relay.dialed();
+    const closed = once(socket, "close");
+    socket.send("x".repeat(4_194_303) + "é");
+    const [code, reason] = await closed;
+    assert.equal(code, 1009);
+    assert.equal(reason.toString(), "frame_too_large");
+  } finally {
+    relay.close();
+  }
+});
+
 test("the relay closing an agent socket stops its agent, and stopping the device closes the socket as going away", async () => {
   const relay = await fakeRelay();
   try {
