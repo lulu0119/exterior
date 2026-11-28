@@ -106,10 +106,7 @@ export function mountSockets(app: Hono<RelayEnv>, input: {
           if (frame !== undefined) link?.frame(frame);
         },
         onClose(event) {
-          if (event.code === attachCloseCodes.frame_too_large) {
-            link?.closed("frame_too_large");
-            return;
-          }
+          if (event.code === attachCloseCodes.frame_too_large) return link?.closed("frame_too_large");
           link?.closed(event.code === 1000 ? "agent_exited" : "device_gone");
         },
       };

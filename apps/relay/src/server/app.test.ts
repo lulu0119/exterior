@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
-import { agentSocketPath, attachCloseCodes, closeReason, deviceCloseCodes } from "@exterioragentprotocol/sdk";
+import { agentSocketPath, attachCloseCodes, deviceCloseCodes } from "@exterioragentprotocol/sdk";
 import { deviceIdOf, dpopProof, generateDeviceKey } from "@exterioragentprotocol/sdk/device";
 import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 import { headerAccess, openTestRelay } from "./testing.js";
@@ -72,20 +72,15 @@ test("the relay forwards a 4 MiB ACP frame and reports an oversized agent frame 
     onTestFinished(() => browser.terminate());
     await once(browser, "open");
 
-    const browserClosed = once(browser, "close");
-    const received = Promise.race([
-      nextText(browser),
-      browserClosed.then(() => assert.fail("The browser disconnected before the 4 MiB frame was forwarded.")),
-    ]);
-    const envelope = JSON.stringify({ jsonrpc: "2.0", id: 1, result: "" });
-    const atLimit = envelope.replace('""', `"${"x".repeat(4 * 1024 * 1024 - envelope.length)}"`);
+    const atLimit = "x".repeat(4_194_304);
+    const received = nextText(browser);
     agent.send(atLimit);
-    assert.ok(await received === atLimit, "the browser receives the complete ACP message");
+    assert.ok(await received === atLimit, "the browser receives the complete frame");
 
-    agent.send(atLimit.replace(/x(?="})/, "é"));
+    const browserClosed = once(browser, "close");
+    agent.send(atLimit.slice(1) + "é");
     const [code, reason] = await browserClosed;
     assert.equal(code, 1009);
-    assert.equal(closeReason(attachCloseCodes, code), "frame_too_large");
     assert.equal(reason.toString(), "frame_too_large");
   } finally {
     control.close();

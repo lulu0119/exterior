@@ -38,7 +38,7 @@ export type AgentSocket = FrameSocket & { close(): void };
 
 /** What a socket's handler tells the registry. */
 export type AttachLink = { frame(frame: string): void; closed(): void };
-export type AgentLink = { frame(frame: string): void; closed(reason: "agent_exited" | "device_gone" | "frame_too_large"): void };
+export type AgentLink = { frame(frame: string): void; closed(reason: AttachCloseReason): void };
 
 type OnlineDevice = {
   /** The relay's own id for this device socket. It changes on every reconnect; the device id does not. */

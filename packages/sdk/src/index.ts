@@ -25,7 +25,7 @@ export const deviceScope = "eap:device";
 export const frameBytes = 4_194_304;
 
 /**
- * Why the relay closed an attach socket. Every close ends the connection. Oversized ACP frames close with 1009.
+ * Why the relay closed an attach socket. Every close ends the connection.
  * `ticket_rejected`: the ticket is used, expired or unknown; open a new connection.
  * `agent_exited`: the agent ended. `device_gone`: the agent socket closed without the agent ending, or the device was removed.
  * `revoked`: the client's authorization no longer permits the connection; sign in again before opening another.

@@ -3,7 +3,7 @@ import { StringDecoder } from "node:string_decoder";
 import WebSocket from "ws";
 import { dpopProof, type DeviceKey } from "../dpop.js";
 import { heartbeat } from "../heartbeat.js";
-import { agentSocketPath, attachCloseCodes, frameBytes, maxFailureLength, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
+import { agentSocketPath, attachCloseCodes, maxFailureLength, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 import { defaultHeartbeatMs, dialRelay } from "./socket.js";
 
@@ -154,8 +154,7 @@ export function carryAgent(agent: StartedAgent, socket: WebSocket, heartbeatMs: 
   const takeStdout = (text: string): void => {
     const consumed = consumeAgentChunk(pending, text);
     pending = consumed.pending;
-    // A line longer than a frame cannot cross the relay.
-    if (consumed.overflow || consumed.frames.some((frame) => Buffer.byteLength(frame) > frameBytes)) {
+    if (consumed.overflow) {
       socket.close(attachCloseCodes.frame_too_large, "frame_too_large");
       stopAgent();
       return;

@@ -19,5 +19,5 @@ The connection id is the agent socket's credential. It has 128 bits of randomnes
 - A connection does not depend on the device socket. A device whose device socket drops and reconnects keeps its running agents.
 - Opening a connection costs one more WebSocket handshake, against an agent start that already takes seconds.
 - The relay holds one socket per device and two per connection.
-- The device closes the agent socket with 1000 when the agent ends, which the client hears as `agent_exited`, with 1001 when it shuts down, heard as `device_gone`, and with 1009 when an ACP message exceeds the limit, heard as `frame_too_large`.
+- The device closes the agent socket with 1000 when the agent ends, which the client hears as `agent_exited`, and with 1001 when it shuts down, heard as `device_gone`.
 - `frame`, `opened` and `close` are no longer device socket messages.

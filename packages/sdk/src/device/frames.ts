@@ -16,6 +16,6 @@ export function consumeAgentChunk(
     .map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line))
     .filter((line) => line.length > 0);
   const pendingChars = remainder.endsWith("\r") ? remainder.length - 1 : remainder.length;
-  if (pendingChars > frameBytes) return { pending: "", frames, overflow: true };
-  return { pending: remainder, frames, overflow: false };
+  const overflow = pendingChars > frameBytes || frames.some((frame) => Buffer.byteLength(frame) > frameBytes);
+  return { pending: overflow ? "" : remainder, frames, overflow };
 }
