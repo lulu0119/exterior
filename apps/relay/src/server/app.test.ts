@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { test } from "vitest";
 import { serve } from "@hono/node-server";
 import { WebSocket } from "ws";
-import { agentSocketPath, attachCloseCodes, deviceCloseCodes } from "@exterioragentprotocol/sdk";
+import { agentSocketPath, attachCloseCodes, closeReason, deviceCloseCodes } from "@exterioragentprotocol/sdk";
 import { deviceIdOf, dpopProof, generateDeviceKey } from "@exterioragentprotocol/sdk/device";
 import { createRegistry } from "@exterioragentprotocol/sdk/relay";
 import { headerAccess, openTestRelay } from "./testing.js";
@@ -49,6 +49,44 @@ test("a device dials one agent socket per connection, and the ticket joins it to
     agent.close(1000);
     const [code] = (await browserClosed) as [number];
     assert.equal(code, attachCloseCodes.agent_exited);
+  } finally {
+    control.close();
+    relay.close();
+  }
+});
+
+test("the relay forwards a 4 MiB ACP frame and reports an oversized agent frame to the browser", async ({ onTestFinished }) => {
+  const relay = await listen({});
+  const control = new WebSocket(`${relay.ws}/eap/v1/device`, { headers: device });
+  try {
+    await once(control, "open");
+    control.send(hello);
+    await waitForDevice(relay.http);
+    const agentSocket = dialAgentOnOpen(control, relay.ws);
+    const opened = await openConnection(relay.http);
+    assert.equal(opened.status, 201);
+    const { url } = (await opened.json()) as { url: string };
+    const agent = await agentSocket;
+    onTestFinished(() => agent.terminate());
+    const browser = new WebSocket(relay.attach(url));
+    onTestFinished(() => browser.terminate());
+    await once(browser, "open");
+
+    const browserClosed = once(browser, "close");
+    const received = Promise.race([
+      nextText(browser),
+      browserClosed.then(() => assert.fail("The browser disconnected before the 4 MiB frame was forwarded.")),
+    ]);
+    const envelope = JSON.stringify({ jsonrpc: "2.0", id: 1, result: "" });
+    const atLimit = envelope.replace('""', `"${"x".repeat(4 * 1024 * 1024 - envelope.length)}"`);
+    agent.send(atLimit);
+    assert.ok(await received === atLimit, "the browser receives the complete ACP message");
+
+    agent.send(atLimit.replace(/x(?="})/, "é"));
+    const [code, reason] = await browserClosed;
+    assert.equal(code, 1009);
+    assert.equal(closeReason(attachCloseCodes, code), "frame_too_large");
+    assert.equal(reason.toString(), "frame_too_large");
   } finally {
     control.close();
     relay.close();

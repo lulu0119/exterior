@@ -3,9 +3,11 @@ import { StringDecoder } from "node:string_decoder";
 import WebSocket from "ws";
 import { dpopProof, type DeviceKey } from "../dpop.js";
 import { heartbeat } from "../heartbeat.js";
-import { agentSocketPath, frameBytes, maxFailureLength, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
+import { agentSocketPath, attachCloseCodes, frameBytes, maxFailureLength, relayWebSocketUrl, type AgentSlot, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
 import { consumeAgentChunk, webSocketTextToAgentLine } from "./frames.js";
 import { defaultHeartbeatMs, dialRelay } from "./socket.js";
+
+const maxUnsentBytes = 1_048_576;
 
 /**
  * An agent process the device started. `stop` ends it, with its whole tree. The device reads its standard output
@@ -145,15 +147,16 @@ export function carryAgent(agent: StartedAgent, socket: WebSocket, heartbeatMs: 
   let pending = "";
   const sendFrame = (frame: string): void => {
     socket.send(frame, () => {
-      if (socket.bufferedAmount <= frameBytes) child.stdout?.resume();
+      if (socket.bufferedAmount <= maxUnsentBytes) child.stdout?.resume();
     });
-    if (socket.bufferedAmount > frameBytes) child.stdout?.pause();
+    if (socket.bufferedAmount > maxUnsentBytes) child.stdout?.pause();
   };
   const takeStdout = (text: string): void => {
     const consumed = consumeAgentChunk(pending, text);
     pending = consumed.pending;
     // A line longer than a frame cannot cross the relay.
     if (consumed.overflow || consumed.frames.some((frame) => Buffer.byteLength(frame) > frameBytes)) {
+      socket.close(attachCloseCodes.frame_too_large, "frame_too_large");
       stopAgent();
       return;
     }

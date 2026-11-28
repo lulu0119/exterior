@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { frameBytes, type AgentSlot, type AttachCloseReason, type Device, type DeviceCloseReason, type DeviceMessage, type DevicePlatform, type RelayMessage } from "../index.js";
+import type { AgentSlot, AttachCloseReason, Device, DeviceCloseReason, DeviceMessage, DevicePlatform, RelayMessage } from "../index.js";
 
 /** Why the relay closes a device socket: an EAP close code's name, or `invalid_message`, which closes it with 1008. */
 export type DeviceSocketClose = DeviceCloseReason | "invalid_message";
@@ -7,7 +7,7 @@ export type DeviceSocketClose = DeviceCloseReason | "invalid_message";
 const defaultTicketTtlMs = 60_000;
 const defaultOpenTimeoutMs = 15_000;
 /** Unsent bytes on one socket past which the relay stops reading the socket that feeds it. */
-const maxUnsentBytes = frameBytes;
+const maxUnsentBytes = 1_048_576;
 
 /** A live connection, as an account's own pages list it. */
 export type ConnectionInfo = {
@@ -38,8 +38,7 @@ export type AgentSocket = FrameSocket & { close(): void };
 
 /** What a socket's handler tells the registry. */
 export type AttachLink = { frame(frame: string): void; closed(): void };
-/** `agentExited`: the device closed the agent socket because the agent ended, rather than the socket dropping. */
-export type AgentLink = { frame(frame: string): void; closed(agentExited: boolean): void };
+export type AgentLink = { frame(frame: string): void; closed(reason: "agent_exited" | "device_gone" | "frame_too_large"): void };
 
 type OnlineDevice = {
   /** The relay's own id for this device socket. It changes on every reconnect; the device id does not. */
@@ -272,9 +271,9 @@ export function createRegistry(input?: { now?: () => number; ticketTtlMs?: numbe
           if (connection.client) forward(frame, connection.client, socket);
           else connection.held.push(frame);
         },
-        closed(agentExited) {
+        closed(reason) {
           connection.agent = undefined;
-          end(connection, agentExited ? "agent_exited" : "device_gone");
+          end(connection, reason);
         },
       };
     },

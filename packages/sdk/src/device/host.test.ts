@@ -89,6 +89,32 @@ test("an open starts the agent and dials its own agent socket, which carries one
   }
 });
 
+test("the device forwards a 4 MiB ACP line and closes with a size error for a longer line", async () => {
+  const relay = await fakeRelay();
+  try {
+    const host = createDeviceHost({ deviceKey, relayUrl: relay.url, hostname: "studio", platform: "linux", workingDirectory, agents: [work], launch: () => echo() });
+    host.attach(() => undefined);
+    host.receive({ type: "open", connectionId, agentName: "work" });
+    const [socket] = await relay.dialed();
+    const envelope = JSON.stringify({ jsonrpc: "2.0", id: 1, result: "" });
+    const atLimit = envelope.replace('""', `"${"x".repeat(4 * 1024 * 1024 - envelope.length)}"`);
+    const closed = once(socket, "close");
+    const received = Promise.race([
+      once(socket, "message").then(([data]) => data.toString()),
+      closed.then(() => assert.fail("The connection closed before the 4 MiB message was forwarded.")),
+    ]);
+    socket.send(atLimit);
+    assert.ok(await received === atLimit, "the relay receives the complete ACP message");
+
+    socket.send(atLimit.replace(/x(?="})/, "é"));
+    const [code, reason] = await closed;
+    assert.equal(code, 1009);
+    assert.equal(reason.toString(), "frame_too_large");
+  } finally {
+    relay.close();
+  }
+});
+
 test("the relay closing an agent socket stops its agent, and stopping the device closes the socket as going away", async () => {
   const relay = await fakeRelay();
   try {

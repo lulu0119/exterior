@@ -1,4 +1,4 @@
-export const maxPendingAgentChars = 1_048_576;
+import { frameBytes } from "../index.js";
 
 /** The line to write for a frame, or undefined for a frame with a raw newline inside, which the device refuses. */
 export function webSocketTextToAgentLine(text: string): string | undefined {
@@ -15,6 +15,7 @@ export function consumeAgentChunk(
   const frames = parts
     .map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line))
     .filter((line) => line.length > 0);
-  if (remainder.length > maxPendingAgentChars) return { pending: "", frames, overflow: true };
+  const pendingChars = remainder.endsWith("\r") ? remainder.length - 1 : remainder.length;
+  if (pendingChars > frameBytes) return { pending: "", frames, overflow: true };
   return { pending: remainder, frames, overflow: false };
 }

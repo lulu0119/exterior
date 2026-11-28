@@ -112,9 +112,9 @@ test("closing either socket closes the other, and the client hears why", async (
   assert.deepEqual(left.registry.listConnections("ada"), []);
 
   const exited = await attached();
-  exited.agentLink.closed(true);
+  exited.agentLink.closed("agent_exited");
   const dropped = await attached();
-  dropped.agentLink.closed(false);
+  dropped.agentLink.closed("device_gone");
   assert.deepEqual([...exited.client.reasons, ...dropped.client.reasons], ["agent_exited", "device_gone"]);
 });
 

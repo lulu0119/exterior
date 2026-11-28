@@ -22,15 +22,15 @@ export const clientScope = "eap:client";
 export const deviceScope = "eap:device";
 
 /** The largest frame, in UTF-8 bytes. */
-export const frameBytes = 1_048_576;
+export const frameBytes = 4_194_304;
 
 /**
- * Why the relay closed an attach socket. Every close ends the connection.
+ * Why the relay closed an attach socket. Every close ends the connection. Oversized ACP frames close with 1009.
  * `ticket_rejected`: the ticket is used, expired or unknown; open a new connection.
  * `agent_exited`: the agent ended. `device_gone`: the agent socket closed without the agent ending, or the device was removed.
  * `revoked`: the client's authorization no longer permits the connection; sign in again before opening another.
  */
-export const attachCloseCodes = { ticket_rejected: 4100, agent_exited: 4101, device_gone: 4102, revoked: 4103 } as const;
+export const attachCloseCodes = { ticket_rejected: 4100, agent_exited: 4101, device_gone: 4102, revoked: 4103, frame_too_large: 1009 } as const;
 export type AttachCloseReason = keyof typeof attachCloseCodes;
 
 /**
